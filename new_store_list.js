@@ -1,6 +1,6 @@
-// Enhanced Store Deep Dive Logic
+// Enhanced Store Deep Dive Logic v2.0
+// Features: Independent Window Mode, Detailed Trends per Section, Qualitative Analysis, Clean UI
 
-// State Management
 var storeListState = {
     page: 1,
     perPage: 15,
@@ -10,21 +10,41 @@ var storeListState = {
     sort: "score_desc"
 };
 
-// Main Initialization
+// --- MAIN ENTRY POINT ---
 function initStoreTable() {
-    // URL Check for Independent Window Mode
+    // Check for Independent Mode (URL ?store=CODE)
     var urlParams = new URLSearchParams(window.location.search);
     var targetStore = urlParams.get('store');
 
     if (targetStore) {
-        // FULLSCREEN MODE
         activateStoreWindowMode(targetStore);
         return;
     }
 
-    // NORMAL DASHBOARD MODE
+    // Normal Dashboard Mode
     var container = document.getElementById("tab-stores");
     if (!container) return;
+
+    injectStoreListUI(container);
+    populateStoreDropdowns();
+    renderStoreTable();
+}
+
+// --- UI INJECTION ---
+function injectStoreListUI(container) {
+    // Inject Custom Styles for Deep Dive to override global animations
+    var style = document.createElement('style');
+    style.innerHTML = `
+        #storeDetailPanel .card, #storeFullscreenContainer .card {
+            transition: none !important;
+            transform: none !important;
+        }
+        #storeDetailPanel .card:hover, #storeFullscreenContainer .card:hover {
+            transform: none !important;
+            box-shadow: 0 .125rem .25rem rgba(0,0,0,.075) !important; /* Reset to Bootstrap default or light shadow */
+        }
+    `;
+    document.head.appendChild(style);
 
     container.innerHTML = `
         <div class="d-flex justify-content-between align-items-center mb-4">
@@ -34,7 +54,6 @@ function initStoreTable() {
             </div>
         </div>
 
-        <!-- Filter Toolbar -->
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-body p-3 bg-light rounded-3">
                 <div class="row g-2 align-items-end">
@@ -72,12 +91,10 @@ function initStoreTable() {
             </div>
         </div>
 
-        <!-- Detail Panel (Hidden by default) -->
-        <div id="storeDetailPanel" style="display:none;" class="mb-4 intro-animation">
-             <!-- Injected via loadStoreDetail -->
+        <div id="storeDetailPanel" style="display:none;" class="mb-4">
+             <!-- Detail View Injected Here -->
         </div>
 
-        <!-- Store Table -->
         <div class="card border-0 shadow-sm">
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0" style="font-size:0.9rem">
@@ -89,12 +106,10 @@ function initStoreTable() {
                             <th>Branch</th>
                             <th>Region</th>
                             <th class="text-end">Last Score</th>
-                            <th class="text-end pe-4" style="width:140px">Action</th>
+                            <th class="text-end pe-4" style="width:150px">Action</th>
                         </tr>
                     </thead>
-                    <tbody id="storeTableBody">
-                        <!-- Rows injected here -->
-                    </tbody>
+                    <tbody id="storeTableBody"></tbody>
                 </table>
             </div>
             <div class="card-footer bg-white py-3 border-0">
@@ -111,41 +126,38 @@ function initStoreTable() {
             </div>
         </div>
     `;
-
-    populateStoreDropdowns();
-    renderStoreTable();
 }
 
+// --- INDEPENDENT WINDOW MODE LOGIC ---
 function activateStoreWindowMode(siteCode) {
-    // Hide standard layout elements
-    document.querySelector('.sidebar').style.display = 'none';
-    document.querySelector('.main-content').style.marginLeft = '0';
-    document.querySelector('.main-content').style.padding = '0'; // Remove padding
+    // Hide UI elements not needed
+    var sidebar = document.querySelector('.sidebar');
+    if (sidebar) sidebar.style.display = 'none';
 
-    // Hide all tabs
-    var tabs = document.querySelectorAll('.tab-content');
-    tabs.forEach(t => t.classList.remove('active'));
+    var mainContent = document.querySelector('.main-content');
+    if (mainContent) {
+        mainContent.style.marginLeft = '0';
+        mainContent.style.padding = '0';
+        mainContent.style.display = 'none'; // Hide default content
+    }
 
-    // Create a dedicated full-screen container
+    // Create Fullscreen Container
     var fsContainer = document.createElement('div');
     fsContainer.id = 'storeFullscreenContainer';
-    fsContainer.className = 'container-fluid p-4 bg-light';
+    fsContainer.className = 'container-fluid p-0 bg-light';
     fsContainer.style.minHeight = '100vh';
     document.body.appendChild(fsContainer);
 
-    // Hide original main content to be safe
-    document.querySelector('.main-content').style.display = 'none';
-
-    // Render logic
     var s = reportData.stores[siteCode];
     if (!s) {
-        fsContainer.innerHTML = `<div class="alert alert-danger m-5">Store ${siteCode} not found in dataset.</div>`;
+        fsContainer.innerHTML = `<div class="d-flex align-items-center justify-content-center vh-100"><div class="text-center"><h3 class="text-muted">Store ${siteCode} not found</h3><button class="btn btn-primary mt-3" onclick="window.close()">Close Window</button></div></div>`;
         return;
     }
 
     renderModernStoreDetail(s, fsContainer, true);
 }
 
+// --- HELPER FUNCTIONS ---
 function populateStoreDropdowns() {
     var regions = Object.keys(reportData.regions).sort();
     var branches = Object.keys(reportData.branches).sort();
@@ -245,8 +257,10 @@ function renderStoreTable() {
             <td><span class="badge bg-light text-muted border">${s.meta.region}</span></td>
             <td class="text-end"><span class="badge ${badgeClass} fs-6" style="${badgeStyle}">${score.toFixed(2)}</span></td>
             <td class="text-end pe-4">
-                <button class="btn btn-sm btn-outline-secondary me-2" onclick="event.stopPropagation(); loadModernStoreDetail('${s.meta.code}')" title="View details here">Details</button>
-                <button class="btn btn-sm btn-light border" onclick="event.stopPropagation(); window.open('?store=${s.meta.code}', '_blank')" title="Open in new window">🔗</button>
+                <div class="btn-group btn-group-sm shadow-sm">
+                    <button class="btn btn-outline-secondary" onclick="event.stopPropagation(); loadModernStoreDetail('${s.meta.code}')" title="View details below">See Details</button>
+                    <button class="btn btn-light text-primary border" onclick="event.stopPropagation(); window.open('?store=${s.meta.code}', '_blank')" title="Open in new Independent Window">🔗</button>
+                </div>
             </td>
         `;
         tbody.appendChild(tr);
@@ -264,90 +278,182 @@ function loadModernStoreDetail(siteCode) {
     renderModernStoreDetail(s, container, false);
 }
 
-// Unified Detail Renderer
+// --- UNIFIED DETAIL RENDERER (The Core Logic) ---
 function renderModernStoreDetail(s, container, isFullscreen) {
     var curWave = sortedWaves[sortedWaves.length - 1];
     var curData = s.results[curWave];
     var score = curData ? curData.totalScore : 0;
 
+    // Header Buttons
     var backBtn = isFullscreen
-        ? `<button class="btn btn-sm btn-light text-danger fw-bold px-3 py-1 rounded-pill shadow-sm" onclick="window.close()">✕ Close Window</button>`
-        : `<button class="btn btn-sm btn-light text-primary-custom fw-bold px-3 py-1 rounded-pill shadow-sm" onclick="document.getElementById('storeDetailPanel').style.display='none'; window.scrollTo({top: 0, behavior: 'smooth'});">← Back to Store List</button>`;
+        ? `<button class="btn btn-sm btn-light text-danger fw-bold px-3 py-1 rounded-pill shadow-sm bg-white border-0" onclick="window.close()">✕ Close Window</button>`
+        : `<button class="btn btn-sm btn-light text-primary-custom fw-bold px-3 py-1 rounded-pill shadow-sm bg-white border-0" onclick="document.getElementById('storeDetailPanel').style.display='none'; window.scrollTo({top: 0, behavior: 'smooth'});">← Back to List</button>`;
+
+    var openWindowBtn = !isFullscreen
+        ? `<button class="btn btn-sm btn-outline-light rounded-pill px-3" onclick="window.open('?store=${s.meta.code}', '_blank')">🔗 Open Independent Window</button>`
+        : "";
+
+    // Qualitative Feedback (Found in last column of CSV usually)
+    var qualitativeText = "No specific qualitative feedback recorded for this wave.";
+    if (curData && curData.qualitative && curData.qualitative.length > 0) {
+        // Join multiple feedbacks if any
+        qualitativeText = curData.qualitative.map(t => `<p class="mb-2">“${t}”</p>`).join("");
+    } else {
+        qualitativeText = `<p class="text-muted fst-italic">${qualitativeText}</p>`;
+    }
 
     container.innerHTML = `
-        <div class="card border-0 shadow-lg overflow-hidden ${isFullscreen ? 'h-100' : ''}">
-            <div class="card-header bg-primary-custom text-white p-4" style="background: linear-gradient(135deg, #002060 0%, #1e3a8a 100%)">
-                <div class="mb-3 d-flex justify-content-between">
+        <div class="card border-0 shadow-lg overflow-hidden ${isFullscreen ? 'rounded-0 min-vh-100' : ''}">
+            <!-- PREMIUM HEADER -->
+            <div class="card-header bg-primary-custom text-white p-4 position-relative" style="background: linear-gradient(135deg, #002060 0%, #1e3a8a 100%);">
+                <div class="d-flex justify-content-between align-items-center mb-3 position-relative" style="z-index:2">
                     <div>${backBtn}</div>
-                    ${!isFullscreen ? `<button class="btn btn-sm btn-outline-light rounded-pill" onclick="window.open('?store=${s.meta.code}', '_blank')">🔗 Open in New Window</button>` : `<div class="opacity-50 small">Independent Window Mode</div>`}
+                    <div>${openWindowBtn}</div>
                 </div>
-                <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex justify-content-between align-items-end position-relative" style="z-index:2">
                     <div>
-                        <h3 class="fw-bold mb-1 text-white">${s.meta.name}</h3>
-                        <div class="opacity-75">${s.meta.region} &middot; ${s.meta.branch} &middot; ${s.meta.code}</div>
+                        <h1 class="fw-bold mb-1 text-white display-6">${s.meta.name}</h1>
+                        <div class="opacity-75 fs-5">${s.meta.region} &middot; ${s.meta.branch} &middot; <span class="badge bg-white text-primary border-0">${s.meta.code}</span></div>
                     </div>
                     <div class="text-end">
-                        <div class="display-4 fw-bold">${score.toFixed(2)}</div>
-                        <div class="small opacity-75">Current Final Score</div>
+                         <div class="display-3 fw-bold" style="text-shadow: 0 2px 10px rgba(0,0,0,0.2)">${score.toFixed(2)}</div>
+                         <div class="small opacity-75 text-uppercase fw-bold letter-spacing-1">Current Final Score</div>
                     </div>
                 </div>
+                <!-- Background Pattern -->
+                <div style="position:absolute;top:0;right:0;bottom:0;left:0;opacity:0.05;background-image: radial-gradient(white 1px, transparent 1px); background-size: 20px 20px; z-index:1; pointer-events:none"></div>
             </div>
-            <div class="card-body p-4">
-                <div class="row g-4">
+
+            <div class="card-body p-4 bg-light">
+                <!-- TOP ROW: TREND & QUALITATIVE -->
+                <div class="row g-4 mb-4">
                     <div class="col-lg-8">
-                        <h5 class="fw-bold text-primary-custom mb-3">Performance Trend</h5>
-                        <div id="stTrendChartModern_${s.meta.code}" style="height:350px"></div>
+                        <div class="card h-100 border-0 shadow-sm">
+                            <div class="card-body p-4">
+                                <h5 class="fw-bold text-primary-custom mb-3">Overall Performance Trend</h5>
+                                <div id="stTrendChart_${s.meta.code}" style="height:350px"></div>
+                            </div>
+                        </div>
                     </div>
-                     <div class="col-lg-4">
-                        <h5 class="fw-bold text-primary-custom mb-3">Critical Issues (< 84)</h5>
-                        <div id="stIssuesList_${s.meta.code}" class="vstack gap-3" style="max-height:350px;overflow-y:auto"></div>
+                    <div class="col-lg-4">
+                        <div class="card h-100 border-0 shadow-sm">
+                            <div class="card-header bg-white border-0 pt-4 px-4 pb-0">
+                                <h5 class="fw-bold text-primary-custom mb-0">Qualitative Feedback</h5>
+                                <small class="text-muted">Wave 2 2025 Analysis</small>
+                            </div>
+                            <div class="card-body p-4">
+                                <div class="p-3 bg-light rounded-3 border h-100 overflow-auto" style="max-height: 250px;">
+                                    <div class="text-dark" style="font-size:0.9rem;line-height:1.6">
+                                        ${qualitativeText}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                
-                <h5 class="fw-bold text-primary-custom mt-4 mb-3">Detailed Section Breakdown</h5>
-                <div class="table-responsive">
-                    <table class="table table-sm table-hover" id="stSectionTableModern_${s.meta.code}">
-                        <thead class="bg-light"><tr><th>Section</th><th class="text-end">Score</th><th class="text-center">Status</th></tr></thead>
-                        <tbody></tbody>
-                    </table>
+
+                <!-- CRITICAL SECTION -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-danger text-white py-3 px-4 d-flex justify-content-between align-items-center">
+                         <h5 class="mb-0 fw-bold">Critical Issues (< 84)</h5>
+                         <span class="badge bg-white text-danger">${curData ? Object.values(curData.sections).filter(v => v < 84).length : 0} Issues Found</span>
+                    </div>
+                    <div class="card-body p-4">
+                         <div class="row g-3" id="stIssuesList_${s.meta.code}"></div>
+                    </div>
+                </div>
+
+                <!-- DETAILED BREAKDOWN WITH MINI CHARTS -->
+                <div class="card border-0 shadow-sm">
+                     <div class="card-header bg-white py-3 px-4">
+                        <h5 class="fw-bold text-primary-custom mb-0">Detailed Section Analysis</h5>
+                     </div>
+                     <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0" id="stSectionTable_${s.meta.code}">
+                            <thead class="bg-light text-muted small text-uppercase">
+                                <tr>
+                                    <th class="ps-4">Section Name</th>
+                                    <th class="text-center">Trend (5 Waves)</th>
+                                    <th class="text-end pe-4">Current Score</th>
+                                    <th class="text-center" style="width:50px">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                     </div>
                 </div>
             </div>
-            ${!isFullscreen ? `<div class="card-footer bg-light p-3 text-end"><button class="btn btn-outline-secondary btn-sm" onclick="document.getElementById('storeDetailPanel').style.display='none'">Close Detail</button></div>` : ''}
+            
+            ${!isFullscreen ? `<div class="card-footer bg-white p-3 text-end"><button class="btn btn-outline-secondary btn-sm" onclick="document.getElementById('storeDetailPanel').style.display='none'">Close Detail Panel</button></div>` : ''}
         </div>
     `;
 
-    // Render Trend Chart (Unique ID)
+    // 1. Render Trend Chart
     var yDiv = sortedWaves.map(w => s.results[w] ? s.results[w].totalScore : null);
-    Plotly.newPlot(`stTrendChartModern_${s.meta.code}`, [{
-        x: sortedWaves, y: yDiv, type: 'scatter', mode: 'lines+markers+text',
+    var xDiv = sortedWaves;
+
+    Plotly.newPlot(`stTrendChart_${s.meta.code}`, [{
+        x: xDiv, y: yDiv, type: 'scatter', mode: 'lines+markers+text',
         text: yDiv.map(v => v ? v.toFixed(1) : ""), textposition: "top center",
-        line: { color: '#002060', width: 3 }, marker: { color: '#002060', size: 8, line: { color: 'white', width: 2 } }
+        line: { color: '#002060', width: 4, shape: 'spline' },
+        marker: { color: '#002060', size: 10, line: { color: 'white', width: 3 } },
+        fill: 'tozeroy', fillcolor: 'rgba(0, 32, 96, 0.05)'
     }], {
-        margin: { t: 20, l: 40, r: 20, b: 30 },
+        margin: { t: 30, l: 40, r: 20, b: 30 },
         yaxis: { range: [50, 105], gridcolor: "#f3f4f6" },
-        xaxis: { showgrid: false }
+        xaxis: { showgrid: false },
+        paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)"
     }, { responsive: true, displayModeBar: false });
 
-    // Render Issues & Table
-    var tableBody = document.querySelector(`#stSectionTableModern_${s.meta.code} tbody`);
+    // 2. Render Critical Issues & Breakdown Table
+    var tableBody = document.querySelector(`#stSectionTable_${s.meta.code} tbody`);
     var issuesDiv = document.getElementById(`stIssuesList_${s.meta.code}`);
+
+    issuesDiv.innerHTML = ""; // Clear
 
     if (curData && curData.sections) {
         Object.entries(curData.sections).forEach(([k, v]) => {
             var isCritical = v < 84;
+
+            // Build Mini Trend Data for this section
+            var sectionTrend = sortedWaves.map(w => (s.results[w] && s.results[w].sections && s.results[w].sections[k]) ? s.results[w].sections[k] : 0);
+            var trendId = `spark_${s.meta.code}_${k.substring(0, 5).replace(/\W/g, '')}_${Math.random().toString(36).substr(2, 5)}`;
+
+            // Table Row
             var tr = document.createElement("tr");
-            tr.innerHTML = `<td>${k}</td><td class="text-end fw-bold ${isCritical ? 'text-danger' : ''}">${v.toFixed(2)}</td><td class="text-center">${isCritical ? '⚠️' : '✅'}</td>`;
+            tr.innerHTML = `
+                <td class="ps-4 fw-bold text-dark">${k}</td>
+                <td class="text-center py-2"><div id="${trendId}" style="width:120px;height:40px;margin:0 auto"></div></td>
+                <td class="text-end pe-4 fw-bold ${isCritical ? 'text-danger' : 'text-success'} fs-5">${v.toFixed(2)}</td>
+                <td class="text-center">${isCritical ? '⚠️' : '✅'}</td>
+            `;
             tableBody.appendChild(tr);
 
+            // Render Sparkline immediate
+            Plotly.newPlot(trendId, [{
+                x: [1, 2, 3, 4, 5], y: sectionTrend, type: 'scatter', mode: 'lines',
+                line: { color: isCritical ? '#EF4444' : '#10B981', width: 2 },
+                fill: 'tozeroy', fillcolor: isCritical ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)'
+            }], {
+                margin: { t: 0, l: 0, r: 0, b: 0 },
+                xaxis: { showgrid: false, zeroline: false, showticklabels: false },
+                yaxis: { showgrid: false, zeroline: false, showticklabels: false, range: [0, 110] },
+                paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)",
+                height: 40, width: 120
+            }, { responsive: false, displayModeBar: false, staticPlot: true });
+
+            // Critical Issue Card
             if (isCritical) {
-                var action = reportData.actionPlanConfig[k] || "Review operational standards immediately.";
+                var action = reportData.actionPlanConfig[k] || "Review operational standards immediately. Scores below 84 require documented action plan.";
                 issuesDiv.innerHTML += `
-                    <div class="p-3 bg-light border-start border-4 border-danger rounded-end">
-                        <div class="d-flex justify-content-between mb-1">
-                            <strong class="text-danger" style="font-size:0.85rem">${k}</strong>
-                            <span class="badge bg-danger">${v.toFixed(1)}</span>
+                    <div class="col-md-6">
+                        <div class="p-3 bg-white border border-danger rounded-3 h-100 shadow-sm" style="border-left-width: 5px !important;">
+                            <div class="d-flex justify-content-between mb-2">
+                                <strong class="text-danger">${k}</strong>
+                                <span class="badge bg-danger rounded-pill">${v.toFixed(1)}</span>
+                            </div>
+                            <div class="text-muted small fst-italic">"${action}"</div>
                         </div>
-                        <div class="text-muted small fst-italic">"${action}"</div>
                     </div>
                 `;
             }
@@ -355,6 +461,6 @@ function renderModernStoreDetail(s, container, isFullscreen) {
     }
 
     if (issuesDiv.innerHTML === "") {
-        issuesDiv.innerHTML = `<div class="alert alert-success border-0 shadow-sm"><h6 class="alert-heading fw-bold mb-1">🎉 Excellent Work!</h6><p class="mb-0 small">No critical issues found in this wave.</p></div>`;
+        issuesDiv.innerHTML = `<div class="col-12"><div class="alert alert-success border-0 shadow-sm d-flex align-items-center"><span class="fs-2 me-3">🎉</span><div><h6 class="alert-heading fw-bold mb-0">Excellent Performance!</h6><p class="mb-0 small">No critical issues found in this wave.</p></div></div></div>`;
     }
 }
