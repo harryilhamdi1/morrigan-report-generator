@@ -3,62 +3,102 @@ function initRegions() {
     var waves = sortedWaves;
     var curWave = waves[waves.length - 1];
 
-    // 1. Heatmap (Consultant Style - Soft & Professional)
+    // 1. Heatmap Data Preparation (Categorical for Clean Styles)
     var secKeys = Object.keys(reportData.summary[curWave].sections).sort();
-    var z = regKeys.map(r => {
-        return secKeys.map(s => {
+
+    // Matrices for Plotly
+    var z_cat = [], z_val = [], z_txt_col = [];
+
+    regKeys.forEach(r => {
+        var row_cat = [], row_val = [], row_col = [];
+        secKeys.forEach(s => {
             var d = reportData.regions[r][curWave];
-            return d && d.sections[s] ? d.sections[s].sum / d.sections[s].count : null;
+            if (!d || !d.sections[s]) {
+                row_cat.push(null); row_val.push(""); row_col.push("black");
+            } else {
+                var sc = d.sections[s].sum / d.sections[s].count;
+                row_val.push(sc.toFixed(1)); // Display Text
+
+                // Bucket Logic
+                if (sc < 84) {
+                    row_cat.push(0); row_col.push("#FFFFFF"); // Critical -> White Text
+                } else if (sc < 90) {
+                    row_cat.push(1); row_col.push("#1F2937"); // Warning -> Dark Text
+                } else if (sc < 95) {
+                    row_cat.push(2); row_col.push("#FFFFFF"); // Good -> White Text
+                } else {
+                    row_cat.push(3); row_col.push("#FFFFFF"); // Excellent -> White Text
+                }
+            }
         });
+        z_cat.push(row_cat);
+        z_val.push(row_val);
+        z_txt_col.push(row_col);
     });
 
-    // Inject Legend HTML if not present
-    var leg = document.getElementById("hmLegend");
-    if (!leg) {
-        var legDiv = document.createElement("div");
-        legDiv.id = "hmLegend";
-        legDiv.className = "d-flex justify-content-center gap-4 mb-4 small text-muted text-uppercase fw-bold";
-        legDiv.style.letterSpacing = "1px";
-        legDiv.innerHTML = `
-           <div class="d-flex align-items-center"><span style="width:12px;height:12px;background:#FCA5A5;border-radius:2px;margin-right:8px;"></span>Critical (<84)</div>
-           <div class="d-flex align-items-center"><span style="width:12px;height:12px;background:#FDE68A;border-radius:2px;margin-right:8px;"></span>Warning (84-90)</div>
-           <div class="d-flex align-items-center"><span style="width:12px;height:12px;background:#93C5FD;border-radius:2px;margin-right:8px;"></span>Good (90-95)</div>
-           <div class="d-flex align-items-center"><span style="width:12px;height:12px;background:#1E3A8A;border-radius:2px;margin-right:8px;"></span>Excellent (>95)</div>`;
-        document.querySelector("#regionSectionHeatmap").parentElement.insertBefore(legDiv, document.querySelector("#regionSectionHeatmap"));
-    }
+    // Custom Legend HTML (Top Only)
+    var legendHTML = `
+           <div class="d-flex justify-content-center gap-4 small text-muted text-uppercase fw-bold" style="letter-spacing:1px; margin: 15px 0;">
+               <div class="d-flex align-items-center"><span style="width:14px;height:14px;background:#EF4444;border-radius:4px;margin-right:8px;box-shadow:0 2px 4px rgba(239,68,68,0.3)"></span>Critical (<84)</div>
+               <div class="d-flex align-items-center"><span style="width:14px;height:14px;background:#F59E0B;border-radius:4px;margin-right:8px;box-shadow:0 2px 4px rgba(245,158,11,0.3)"></span>Warning (84-90)</div>
+               <div class="d-flex align-items-center"><span style="width:14px;height:14px;background:#60A5FA;border-radius:4px;margin-right:8px;box-shadow:0 2px 4px rgba(96,165,250,0.3)"></span>Good (90-95)</div>
+               <div class="d-flex align-items-center"><span style="width:14px;height:14px;background:#1E3A8A;border-radius:4px;margin-right:8px;box-shadow:0 2px 4px rgba(30,58,138,0.3)"></span>Excellent (>95)</div>
+           </div>`;
 
-    // Discrete-like custom colorscale for "Consultant" look
+    var container = document.getElementById("regionSectionHeatmap").parentElement;
+
+    // Clear old custom legends
+    container.querySelectorAll(".hm-legend-custom").forEach(e => e.remove());
+
+    // Inject Top Legend
+    var topLeg = document.createElement("div");
+    topLeg.className = "hm-legend-custom";
+    topLeg.innerHTML = legendHTML;
+    container.insertBefore(topLeg, document.getElementById("regionSectionHeatmap"));
+
+    // Modern Flat Colors (0,1,2,3)
     var colors = [
-        [0, "#FCA5A5"],     // Soft Red
-        [0.5, "#FDE68A"],   // Soft Amber
-        [0.8, "#93C5FD"],   // Soft Blue
-        [1, "#1E3A8A"]      // Deep Professional Blue
+        [0, "#EF4444"], [0.25, "#EF4444"], // Red
+        [0.25, "#F59E0B"], [0.5, "#F59E0B"], // Amber
+        [0.5, "#60A5FA"], [0.75, "#60A5FA"], // Blue
+        [0.75, "#1E3A8A"], [1, "#1E3A8A"]    // Dark Blue
     ];
 
     var hmDiv = document.getElementById("regionSectionHeatmap");
 
     Plotly.newPlot(hmDiv, [{
-        x: secKeys.map(s => s.split(" ")[0]),
+        x: secKeys, // FULL NAMES NOW
         y: regKeys,
-        z: z,
+        z: z_cat,
+        text: z_val,
+        customdata: z_val,
         type: "heatmap",
         colorscale: colors,
-        xgap: 4, ygap: 4, // More gap for "tile" look
-        zmin: 60, zmax: 100, // Fixed range for consistent colors
-        hovertemplate: "<b>%{y}</b><br>%{x}<br>Score: <b>%{z:.2f}</b><extra></extra>",
-        showscale: false // Hide default legend since we have custom one
+        zmin: 0, zmax: 3,
+        xgap: 5, ygap: 5,
+        texttemplate: "<b>%{text}</b>",
+        textfont: { color: z_txt_col, family: "Inter", size: 11 },
+        hovertemplate: "<b>%{y}</b><br>%{x}<br>Score: <b>%{text}</b><extra></extra>",
+        showscale: false
     }], {
-        margin: { l: 120, b: 50, t: 20 },
-        xaxis: { side: "bottom", tickfont: { size: 11, color: "#6B7280" } },
-        yaxis: { tickfont: { size: 11, color: "#6B7280" } },
-        font: { family: "Inter, sans-serif" }
+        margin: { l: 120, b: 120, t: 10 }, // Increased bottom margin for rotated labels
+        xaxis: {
+            side: "bottom",
+            tickfont: { size: 10, color: "#4B5563", family: "Inter", weight: "600" },
+            tickangle: -25 // Slanted for readability
+        },
+        yaxis: { tickfont: { size: 11, color: "#6B7280", family: "Inter", weight: "bold" } },
+        font: { family: "Inter, sans-serif" },
+        height: 600, // Taller to accommodate labels
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)'
     }, config);
 
-    // Interactivity: Click to Deep Dive (Corrected Binding)
+    // Interactivity: Click to Deep Dive
     hmDiv.on("plotly_click", function (data) {
         var pt = data.points[0];
-        var r = pt.y, sDisplay = pt.x;
-        var fullSec = secKeys.find(k => k.startsWith(sDisplay));
+        var r = pt.y, fullSec = pt.x; // Now pt.x IS the full section name
+
         var d = reportData.regions[r][curWave], secData = d.sections[fullSec];
         var score = secData.sum / secData.count;
         var natData = reportData.summary[curWave].sections[fullSec], natScore = natData.sum / natData.count, diff = score - natScore;
@@ -91,7 +131,6 @@ function initRegions() {
                    <div class="col-12"><div class="pt-3 border-top"><div class="small text-muted text-uppercase fw-bold mb-2">Historical Trend</div><div id="hmTrendChart" style="height:120px;"></div></div></div>
                </div></div>
            </div></div></div>`;
-            // Use insertAdjacentHTML or append to body safely
             document.body.insertAdjacentHTML('beforeend', m.innerHTML);
         }
 
@@ -116,7 +155,7 @@ function initRegions() {
         modal.show();
     });
 
-    // 2. Performance Trends (Premium Line Chart)
+    // 2. Performance Trends - UNCHANGED
     var traces = regKeys.map(r => {
         var y = waves.map(w => { var d = reportData.regions[r][w]; return d ? d.sum / d.count : null; });
         return { x: waves, y: y, mode: "lines+markers", name: r, line: { shape: "spline", width: 3 }, marker: { size: 8 }, visible: true };
@@ -127,7 +166,7 @@ function initRegions() {
         xaxis: { showgrid: false }, yaxis: { gridcolor: "#F3F4F6", showgrid: true }
     }, config);
 
-    // 3. Leaderboard Tiles with Top 3 Weaknesses
+    // 3. Leaderboard - UNCHANGED
     var cont = document.getElementById("regionDetailCards");
     cont.innerHTML = "";
     // Sort regions by score
@@ -143,7 +182,6 @@ function initRegions() {
         var prevS = prevD ? prevD.sum / prevD.count : 0;
         var diff = score - prevS;
 
-        // Find 3 weakest sections
         var secs = Object.entries(d.sections).map(([k, v]) => ({ k: k, v: v.sum / v.count })).sort((a, b) => a.v - b.v).slice(0, 3);
         var weakHTML = secs.map(x => `<div class="d-flex justify-content-between align-items-center mb-1 text-danger small"><span class="text-truncate" style="max-width:180px">${x.k}</span><strong>${x.v.toFixed(1)}</strong></div>`).join("");
 
