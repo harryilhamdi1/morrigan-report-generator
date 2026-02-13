@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const reportFile = path.join(__dirname, 'report_v4.html');
+const reportFile = path.join(__dirname, 'ESS Retail In Depth Analysis.html');
 const newStoreListCodeFile = path.join(__dirname, 'new_store_list.js');
 const newStoreListCode = fs.readFileSync(newStoreListCodeFile, 'utf8');
 

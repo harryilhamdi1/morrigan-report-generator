@@ -184,8 +184,8 @@ async function processAll() {
 </html>
     `;
 
-    await fs.writeFile('report_v4.html', html);
-    console.log("Morrigan Report Re-Generated: report_v4.html");
+    await fs.writeFile('ESS Retail In Depth Analysis.html', html);
+    console.log("Report Re-Generated: ESS Retail In Depth Analysis.html");
 }
 
 processAll();
