@@ -1,33 +1,72 @@
-<div id="tab-branches" style="display:none;">
-    <h2 class="text-primary-custom mb-4">Branch Performance</h2>
+<div id="tab-branches" style="display:none;" class="fade-in">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-end mb-4">
+        <div>
+            <h2 class="text-primary-custom fw-bold mb-1">Branch Strategic Analysis</h2>
+            <p class="text-muted mb-0">Performance assessment, momentum tracking & strategic diagnostics.</p>
+        </div>
+        <div class="text-end">
+            <span class="badge bg-light text-secondary border px-3 py-2 rounded-pill"> <span
+                    id="branchCountDisplay">--</span> Branch Units</span>
+        </div>
+    </div>
 
-    <!-- Heatmap & Bar Chart -->
-    <div class="row mb-4">
-        <div class="col-xl-9">
-            <div class="card h-100">
-                <div class="card-header-clean d-flex justify-content-between align-items-center">
-                    <span>Performance Heatmap (Branch vs Section)</span>
-                    <div class="hm-legend-custom"></div>
+    <!-- 1. Strategic KPIs (Top Row) -->
+    <div id="branchKPIs" class="row g-3 mb-4">
+        <!-- Injected via JS -->
+    </div>
+
+    <!-- 2. Strategic Visuals (Charts) -->
+    <div class="row g-4 mb-4">
+        <div class="col-xl-6">
+            <div class="card border-0 shadow-sm h-100 p-4">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <h5 class="fw-bold text-dark mb-0">Branch Momentum vs Performance</h5>
                 </div>
-                <div class="card-body">
-                    <div id="branchHeatmap" style="height: 600px;"></div>
-                </div>
+                <p class="text-muted small mb-3">Left: Growth trend (vs previous wave) · Right: Current score assessment
+                </p>
+                <div id="branchMomentumChart" style="height: 500px;"></div>
             </div>
         </div>
-        <div class="col-xl-3">
-            <div class="card h-100">
-                <div class="card-header-clean">Rankings</div>
-                <div class="card-body p-0 d-flex flex-column">
-                    <div class="p-3 border-bottom"><input type="text" id="branchSearch"
-                            class="form-control form-control-sm" placeholder="Search..." onkeyup="filterBranches()">
-                    </div>
-                    <div id="branchBarChart" style="flex:1; min-height:400px;"></div>
+        <div class="col-xl-6">
+            <div class="card border-0 shadow-sm h-100 p-4">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <h5 class="fw-bold text-dark mb-0">Strategic Growth Matrix</h5>
                 </div>
+                <p class="text-muted small mb-3">Performance (X) vs Momentum (Y) — Bubble size = Outlet count</p>
+                <div id="branchMatrixChart" style="height: 500px;"></div>
             </div>
         </div>
     </div>
 
-    <!-- Branch Detail Cards -->
-    <h4 class="text-primary-custom mb-3">Branch Details</h4>
-    <div id="branchContainer" class="row g-4"></div>
+    <!-- 3. Key Insights -->
+    <div class="card border-0 shadow-sm p-4 mb-5" style="border-left: 5px solid #002060 !important;">
+        <div class="d-flex align-items-center mb-3">
+            <h5 class="fw-bold text-dark mb-0 me-3">Key Strategic Findings</h5>
+            <span class="badge bg-primary-custom small">AUTO-GENERATED</span>
+        </div>
+        <div id="branchInsights" class="vstack gap-2">
+            <!-- Injected via JS -->
+        </div>
+    </div>
+
+    <!-- 4. Branch Health Monitor -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h5 class="fw-bold text-dark mb-1">Branch Health Monitor</h5>
+            <p class="text-muted small mb-0">Detailed diagnostic cards with trend, drag stores & priority sections</p>
+        </div>
+        <div class="input-group shadow-sm" style="width: 300px;">
+            <span class="input-group-text bg-white border-0 ps-3"><svg style="width:16px;height:16px;color:#9CA3AF"
+                    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg></span>
+            <input type="text" id="branchSearch" class="form-control border-0 bg-white" placeholder="Filter branch..."
+                onkeyup="filterBranchCards()">
+        </div>
+    </div>
+    <div id="branchContainer" class="row g-4">
+        <!-- Wide cards injected via JS -->
+    </div>
 </div>

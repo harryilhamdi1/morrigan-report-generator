@@ -321,104 +321,247 @@ function initBranches() {
     var bKeys = Object.keys(reportData.branches).sort();
     var waves = sortedWaves;
     var cur = waves[waves.length - 1];
+    var prev = waves.length > 1 ? waves[waves.length - 2] : null;
 
-    // 1. Premium Heatmap
-    var secKeys = Object.keys(reportData.summary[cur].sections).sort();
-    var z_cat = [], z_val = [], z_txt_col = [];
+    // 1. Data Preparation
+    var brData = bKeys.map(br => {
+        var d = reportData.branches[br][cur];
+        var dPrev = prev ? reportData.branches[br][prev] : null;
+        var score = d ? d.sum / d.count : 0;
+        var pScore = dPrev ? dPrev.sum / dPrev.count : 0;
+        var momentum = score - pScore;
 
-    // Premium Palette
-    var cRed = "#EF4444"; var cOrange = "#F59E0B"; var cBlueLight = "#60A5FA"; var cBlueDark = "#1E40AF";
-    var cTextDark = "#111827"; var cTextWhite = "#FFFFFF";
+        // Count Outlets
+        var outletCount = Object.values(reportData.stores).filter(s => s.meta.branch === br && s.results[cur]).length;
 
-    bKeys.forEach(br => {
-        var row_cat = [], row_val = [], row_col = [];
-        secKeys.forEach(s => {
-            var d = reportData.branches[br][cur];
-            if (!d || !d.sections[s]) {
-                row_cat.push(null); row_val.push(""); row_col.push(cTextDark);
-            } else {
-                var sc = d.sections[s].sum / d.sections[s].count;
-                row_val.push(sc.toFixed(1));
-                if (sc < 84) { row_cat.push(0); row_col.push(cTextWhite); }
-                else if (sc < 90) { row_cat.push(1); row_col.push(cTextDark); }
-                else if (sc < 95) { row_cat.push(2); row_col.push(cTextDark); }
-                else { row_cat.push(3); row_col.push(cTextWhite); }
-            }
-        });
-        z_cat.push(row_cat); z_val.push(row_val); z_txt_col.push(row_col);
-    });
+        return {
+            n: br,
+            s: score,
+            mom: momentum,
+            count: outletCount,
+            d: d // Raw data
+        };
+    }).sort((a, b) => a.s - b.s); // Sort by Score Ascending for charts
 
-    var colors = [[0, cRed], [0.25, cRed], [0.25, cOrange], [0.5, cOrange], [0.5, cBlueLight], [0.75, cBlueLight], [0.75, cBlueDark], [1, cBlueDark]];
+    document.getElementById("branchCountDisplay").textContent = bKeys.length + " Units - " + brData.reduce((a, b) => a + b.count, 0) + " Outlets";
 
-    Plotly.newPlot("branchHeatmap", [{
-        x: secKeys, y: bKeys, z: z_cat, text: z_val, customdata: z_val,
-        type: "heatmap", colorscale: colors, zmin: 0, zmax: 3, xgap: 3, ygap: 3,
-        texttemplate: "<b>%{text}</b>", textfont: { color: z_txt_col, family: "Inter", size: 10 },
-        showscale: false, hoverongaps: false
-    }], {
-        margin: { l: 150, b: 100, t: 20, r: 20 },
-        font: { family: "Inter, sans-serif" }, height: 600,
-        xaxis: { tickangle: -45, title: "", tickfont: { size: 11, color: "#4B5563" } },
-        yaxis: { title: "", tickfont: { size: 11, color: "#4B5563", weight: "bold" } },
-        paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)'
+    // 2. Generate KPIs
+    var topPerf = [...brData].sort((a, b) => b.s - a.s)[0];
+    var fastImp = [...brData].sort((a, b) => b.mom - a.mom)[0];
+    var minScore = Math.min(...brData.map(b => b.s));
+    var maxScore = Math.max(...brData.map(b => b.s));
+    var gap = maxScore - minScore;
+
+    // Health Counts
+    var hExc = brData.filter(b => b.s >= 95).length;
+    var hWarn = brData.filter(b => b.s >= 84 && b.s < 95).length;
+    var hCrit = brData.filter(b => b.s < 84).length;
+
+    var kpiHTML = `
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100 position-relative overflow-hidden" style="background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%);">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center mb-2"><span class="fs-4 me-2">🏆</span><span class="small fw-bold text-primary text-uppercase">Top Performer</span></div>
+                    <h5 class="fw-bold text-dark mb-1 text-truncate">${topPerf.n}</h5>
+                    <div class="small text-muted">${topPerf.s.toFixed(2)} pts <span class="text-success fw-bold ms-1"> +${topPerf.mom.toFixed(2)} mom</span></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100 position-relative overflow-hidden" style="background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center mb-2"><span class="fs-4 me-2">🚀</span><span class="small fw-bold text-success text-uppercase">Fastest Improver</span></div>
+                    <h5 class="fw-bold text-dark mb-1 text-truncate">${fastImp.n}</h5>
+                    <div class="small text-muted">+${fastImp.mom.toFixed(2)} growth <span class="text-secondary ms-1"> Score: ${fastImp.s.toFixed(2)}</span></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100 position-relative overflow-hidden" style="background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center mb-2"><span class="fs-4 me-2">⚠️</span><span class="small fw-bold text-warning text-uppercase" style="color: #B45309 !important;">Performance Gap</span></div>
+                    <h5 class="fw-bold text-dark mb-1">${gap.toFixed(2)} pts</h5>
+                    <div class="small text-muted" style="color: #92400E !important;">Between Highest & Lowest Branch</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100 position-relative overflow-hidden" style="background: linear-gradient(135deg, #F3E8FF 0%, #E9D5FF 100%);">
+                <div class="card-body p-4">
+                     <div class="d-flex align-items-center mb-2"><span class="fs-4 me-2">📊</span><span class="small fw-bold text-purple text-uppercase" style="color: #6B21A8 !important;">Branch Health Index</span></div>
+                     <h5 class="fw-bold text-dark mb-1">${hExc} <span class="text-muted fw-light mx-1">/</span> ${hWarn} <span class="text-muted fw-light mx-1">/</span> ${hCrit}</h5>
+                     <div class="small text-muted" style="color: #581C87 !important;">Excellent / Warning / Critical</div>
+                </div>
+            </div>
+        </div>
+    `;
+    document.getElementById("branchKPIs").innerHTML = kpiHTML;
+
+    // 3. Dual Chart: Momentum (Bar) vs Score (Scatter)
+    var yNames = brData.map(d => d.n);
+    var xMom = brData.map(d => d.mom);
+    var xScore = brData.map(d => d.s);
+    var markerColors = xScore.map(s => s >= 95 ? '#10B981' : (s >= 84 ? '#F59E0B' : '#EF4444'));
+    var momColors = xMom.map(m => m >= 0 ? '#10B981' : '#EF4444');
+
+    Plotly.newPlot("branchMomentumChart", [
+        {
+            y: yNames, x: xMom, type: 'bar', orientation: 'h', name: 'Growth',
+            marker: { color: momColors, opacity: 0.8 },
+            text: xMom.map(m => (m > 0 ? "+" : "") + m.toFixed(2)), textposition: "auto",
+            xaxis: 'x1', hoverinfo: 'x+y'
+        },
+        {
+            y: yNames, x: xScore, type: 'scatter', mode: 'markers+text', name: 'Score',
+            marker: { color: markerColors, size: 12, line: { color: 'white', width: 1 } },
+            text: xScore.map(s => s.toFixed(1)), textposition: 'right',
+            xaxis: 'x2', hoverinfo: 'x+y'
+        }
+    ], {
+        grid: { rows: 1, columns: 2, pattern: 'independent' },
+        xaxis: { title: 'GROWTH TREND', domain: [0, 0.45], zeroline: true, showgrid: true, tickfont: { size: 10 } },
+        xaxis2: { title: 'CURRENT SCORE', domain: [0.55, 1], range: [60, 105], showgrid: true, tickfont: { size: 10 } },
+        yaxis: { automargin: true, tickfont: { size: 10, family: 'Inter' } },
+        yaxis2: { showticklabels: false, matches: 'y' }, // Shared Y
+        margin: { l: 150, r: 20, t: 30, b: 30 },
+        showlegend: false,
+        paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+        height: 500, font: { family: 'Inter' }
     }, config);
 
-    // 2. Premium Branch Ranking
-    var dat = bKeys.map(br => { var d = reportData.branches[br][cur]; return { n: br, s: d ? d.sum / d.count : 0 }; }).sort((x, y) => x.s - y.s);
-    var cols = dat.map(x => x.s >= 84 ? "#3B82F6" : "#EF4444"); // Blue-500 vs Red-500
+    // 4. Strategic Matrix (Bubble Chart)
+    var traceMatrix = {
+        x: xScore, y: xMom,
+        text: yNames,
+        mode: 'markers+text',
+        marker: {
+            size: brData.map(d => Math.sqrt(d.count) * 8), // Size by outlet count
+            color: '#002060', opacity: 0.7,
+            line: { color: 'white', width: 1 }
+        },
+        textposition: 'top center',
+        textfont: { size: 9, family: 'Inter' },
+        hovertemplate: '<b>%{text}</b><br>Score: %{x:.2f}<br>Momentum: %{y:.2f}<extra></extra>'
+    };
 
-    Plotly.newPlot("branchBarChart", [{
-        x: dat.map(x => x.s), y: dat.map(x => x.n),
-        type: "bar", orientation: "h",
-        marker: { color: cols, line: { width: 0 } },
-        text: dat.map(x => x.s.toFixed(2)), textposition: "inside",
-        insidetextfont: { color: "white", family: "Inter", weight: "bold" },
-        hoverinfo: "x+y"
-    }], {
-        margin: { l: 10, t: 10, b: 30, r: 10 },
-        xaxis: { range: [60, 105], showticklabels: false, showgrid: false, zeroline: false },
-        yaxis: { showticklabels: true, automargin: true, tickfont: { family: "Inter", size: 11 } },
-        paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)'
-    }, { responsive: true, displayModeBar: false });
+    Plotly.newPlot("branchMatrixChart", [traceMatrix], {
+        xaxis: { title: 'Current Score →', range: [60, 100], showgrid: true, gridcolor: '#F3F4F6', zeroline: false },
+        yaxis: { title: 'Growth Momentum ↑', showgrid: true, gridcolor: '#F3F4F6', zeroline: true, zerolinecolor: '#9CA3AF' },
+        shapes: [
+            { type: 'line', x0: 84, x1: 84, y0: -10, y1: 15, line: { color: '#EF4444', width: 1, dash: 'dot' } } // Critical Threshold
+        ],
+        annotations: [
+            { x: 95, y: 12, text: '⭐ STARS', showarrow: false, font: { color: '#F59E0B', weight: 'bold' } },
+            { x: 70, y: 12, text: '⚡ RISING', showarrow: false, font: { color: '#10B981', weight: 'bold' } },
+            { x: 95, y: -5, text: '👀 WATCH', showarrow: false, font: { color: '#F59E0B', weight: 'bold' } },
+            { x: 70, y: -5, text: '🛑 CRITICAL', showarrow: false, font: { color: '#EF4444', weight: 'bold' } }
+        ],
+        margin: { t: 20, b: 40, l: 50, r: 20 },
+        paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+        font: { family: 'Inter' }
+    }, config);
 
-    // 3. Branch Cards with SVG Sparklines
+    // 5. Automated Insights
+    var insights = [];
+    insights.push(`<div>📌 <strong>${topPerf.n}</strong> leads the network with a score of <strong>${topPerf.s.toFixed(2)}</strong>.`);
+    if (hCrit > 0) {
+        var critNames = brData.filter(b => b.s < 84).map(b => b.n).join(", ");
+        insights.push(`<div>🚨 <strong>${hCrit} branches</strong> fall below the critical threshold of 84: <span class="text-danger">${critNames}</span>. Immediate intervention is recommended.</div>`);
+    } else {
+        insights.push(`<div>✅ All branches are performing above the critical threshold.</div>`);
+    }
+    insights.push(`<div>📈 <strong>${fastImp.n}</strong> shows the strongest improvement momentum at <span class="text-success fw-bold">+${fastImp.mom.toFixed(2)} points</span>, signaling effective operational changes.</div>`);
+
+    document.getElementById("branchInsights").innerHTML = insights.join("");
+
+    // 6. Branch Health Monitor Cards
+    renderBranchCards(brData, waves); // Helper
+}
+
+function renderBranchCards(data, waves) {
     var cont = document.getElementById("branchContainer");
     cont.innerHTML = "";
-    var cardsDat = [...dat].reverse();
 
-    cardsDat.forEach(item => {
-        var br = item.n;
-        var score = item.s;
+    // Reverse to show high scores first by default
+    var viewData = [...data].reverse();
 
-        // Trend Data for Sparkline
-        var yTrend = waves.map(w => { var d = reportData.branches[br][w]; return d ? d.sum / d.count : null; });
-        var sparkHTML = generateSparkline(yTrend); // Use the helper!
+    viewData.forEach((d, i) => {
+        var rank = i + 1;
+        var badge = d.s >= 95 ? '<span class="badge bg-primary-custom">EXCELLENT</span>' : (d.s >= 84 ? '<span class="badge bg-warning text-dark">WARNING</span>' : '<span class="badge bg-danger">CRITICAL</span>');
 
-        // Focus Stores
-        var stores = Object.values(reportData.stores).filter(s => s.meta.branch === br && s.results[cur]).map(s => ({ n: s.meta.name, s: s.results[cur].totalScore })).sort((a, b) => a.s - b.s);
-        var bottom3 = stores.slice(0, 3);
-        var botHTML = bottom3.map(s => `<div class="d-flex justify-content-between small mb-2 border-bottom pb-1 border-light">
-            <span class="text-truncate text-secondary" style="max-width:140px;" title="${s.n}">${s.n}</span>
-            <span class="fw-bold ${s.s < 84 ? 'text-danger' : 'text-dark'}">${s.s.toFixed(2)}</span>
-        </div>`).join("");
+        // Trend Sparkline
+        var yTrend = waves.map(w => { var bd = reportData.branches[d.n][w]; return bd ? bd.sum / bd.count : null; });
+        var sparkHTML = generateSparkline(yTrend);
+
+        // Top Drag Stores (Lowest 3)
+        var stores = Object.values(reportData.stores).filter(s => s.meta.branch === d.n && s.results[waves[waves.length - 1]]).map(s => ({ n: s.meta.name, s: s.results[waves[waves.length - 1]].totalScore })).sort((a, b) => a.s - b.s).slice(0, 3);
+        var dragHTML = stores.map(s => `
+            <div class="d-flex justify-content-between small mb-1 border-bottom border-light pb-1">
+                <span class="text-truncate text-muted" style="max-width:200px;" title="${s.n}">${s.n}</span>
+                <span class="fw-bold ${s.s < 84 ? 'text-danger' : 'text-dark'}">${s.s.toFixed(1)}</span>
+            </div>`).join("");
+
+        // Priority Sections (Lowest 3)
+        var secs = Object.entries(d.d.sections).map(([k, v]) => ({ k: k, s: v.sum / v.count })).sort((a, b) => a.s - b.s).slice(0, 3);
+        var secHTML = secs.map(s => `
+            <div class="d-flex justify-content-between small mb-1 border-bottom border-light pb-1">
+                <span class="text-truncate text-muted" style="max-width:200px;" title="${s.k}">${s.k}</span>
+                <span class="fw-bold ${s.s < 84 ? 'text-danger' : 'text-dark'}">${s.s.toFixed(1)}</span>
+            </div>`).join("");
 
         var col = document.createElement("div");
-        col.className = "col-xl-3 col-lg-4 col-md-6";
+        col.className = "col-12 branch-card-item"; // For filtering
+        col.dataset.name = d.n.toLowerCase();
+
         col.innerHTML = `
-            <div class="card h-100 shadow-sm border-0" style="transition: transform 0.2s;">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h6 class="fw-bold text-dark text-truncate mb-0" style="max-width:70%; font-size: 0.95rem;" title="${br}">${br}</h6>
-                        <span class="badge ${score < 84 ? 'bg-danger' : 'bg-primary'} rounded-pill px-3">${score.toFixed(2)}</span>
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-4">
+                <div class="row align-items-center">
+                    <!-- Header Info -->
+                    <div class="col-lg-3 border-end">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-light text-dark border me-2 rounded-circle d-flex align-items-center justify-content-center" style="width:24px;height:24px;">${rank}</span>
+                            <h5 class="fw-bold text-primary-custom mb-0 text-truncate" title="${d.n}">${d.n}</h5>
+                        </div>
+                        <div class="d-flex gap-2 mb-3">
+                            <span class="badge bg-light text-secondary border">${d.count} Outlets</span>
+                            ${badge}
+                        </div>
+                        <h2 class="display-4 fw-bold mb-0 ${d.s < 84 ? 'text-danger' : 'text-primary'}">${d.s.toFixed(1)}</h2>
+                        <div class="small fw-bold ${d.mom >= 0 ? 'text-success' : 'text-danger'}">
+                            ${d.mom >= 0 ? '▲' : '▼'} ${Math.abs(d.mom).toFixed(2)} vs prev
+                        </div>
                     </div>
-                    <div class="mb-3" style="height: 40px;">${sparkHTML}</div>
-                    <div>
-                        <div class="text-xs text-uppercase fw-bold text-secondary mb-2" style="font-size:0.75rem; letter-spacing:0.5px;">Focus Stores</div>
-                        ${botHTML || '<div class="small text-muted">No data available</div>'}
+
+                    <!-- Trend -->
+                    <div class="col-lg-3 px-4 border-end">
+                        <div class="small text-uppercase fw-bold text-muted mb-2" style="font-size:0.7rem;">Trend (5 Waves)</div>
+                        <div style="height:60px;">${sparkHTML}</div>
+                    </div>
+
+                    <!-- Drag Stores -->
+                    <div class="col-lg-3 px-4 border-end">
+                         <div class="small text-uppercase fw-bold text-danger mb-2" style="font-size:0.7rem;">% Top "Drag" Stores</div>
+                         ${dragHTML || '<span class="small text-muted">No data</span>'}
+                    </div>
+
+                    <!-- Priority Sections -->
+                    <div class="col-lg-3 px-4">
+                         <div class="small text-uppercase fw-bold text-warning mb-2" style="font-size:0.7rem; color: #B45309 !important;">⚠ Priority Sections</div>
+                         ${secHTML || '<span class="small text-muted">No data</span>'}
                     </div>
                 </div>
-            </div>`;
+            </div>
+        </div>`;
         cont.appendChild(col);
+    });
+}
+
+function filterBranchCards() {
+    var term = document.getElementById("branchSearch").value.toLowerCase();
+    var cards = document.querySelectorAll(".branch-card-item");
+    cards.forEach(c => {
+        c.style.display = c.dataset.name.includes(term) ? "block" : "none";
     });
 }
 
