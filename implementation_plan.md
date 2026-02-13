@@ -22,15 +22,36 @@
 
 ### Sprint 2: Field Utility Pack (PDF & Action Logic) 📄
 **Objective:** Make the dashboard printable and strictly actionable for physical field visits.
-- [x] **Automated "Rapor Toko" (PDF):** 
-    - Implement precise CSS `@media print` styling.
-    - Format Deep Dive view into a clean single-page A4 report (Score + Trends + Issues).
-- [x] **Managerial Action Checklist:**
-    - Develop a logic mapper (e.g., *If 'Toilet' < 84 -> Suggest "Check hourly cleaning log"*).
-    - Generate a printable "To-Do List" for Supervisors based on low scores.
+- [x] **Phase 1: Project Restructuring & Build System**
+  - [x] Extract HTML templates into `src/templates/`.
+  - [x] Create modular JS logic in `src/modules/`.
+  - [x] Implement `src/build.js` for robust report generation.
+  - [x] Verify build process stability.
 
-### Sprint 3: "Voice of Customer" Engine 🗣️
-**Objective:** Extract structured insights from unstructured qualitative text.
+- [x] **Phase 2: Core Analysis Modules**
+  - [x] **Regional/Branch Analysis**:
+    - [x] Implement Branch vs Section Heatmap.
+    - [x] Add Branch Performance Cards with Sparklines.
+    - [x] Add "Focus Stores" list for managers.
+  - [x] **Store Deep Dive**:
+    - [x] Implement Radar Chart (Spider Web) for Gap Analysis.
+    - [x] Add Context Badges (+/- vs Region).
+    - [x] **Premium Layout**:
+      - [x] "Luxury" Dark Header with Trend Spline Chart.
+      - [x] Critical Issues Banner.
+      - [x] SVG Sparklines in Section Analysis Table.
+
+- [ ] **Phase 3: Visual & UX Polish (Current)**
+  - [ ] **Store List Master View**: (New Request)
+    - [ ] Replace simple dropdown with a full "Master Table" of stores.
+    - [ ] Implement filters: Search, Region, Branch, Sort.
+    - [ ] "Luxury" Table Styling: Badges, Pills, Hover effects.
+    - [ ] Master-Detail navigation (List <-> Detail).
+  - [ ] Final Design Review & Micro-interactions.
+
+- [ ] **Phase 4: Advanced Features (Future)**
+  - [ ] "Battle Mode" (Compare 2 Stores Side-by-Side).
+  - [ ] PDF Export Optimization.ts from unstructured qualitative text.
 - [x] **Keyword Frequency Analysis:** Implement lightweight JavaScript logic to count repetitive words in feedback (e.g., "Panas", "Lama", "Kotor").
 - [x] **Word Cloud Visualization:** Visualize top customer complaints/compliments.
 - [x] **Sentiment Association:** Correlate specific keywords with low section scores (e.g., Link word "Kasar" to "Service").

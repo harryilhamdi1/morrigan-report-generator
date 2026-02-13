@@ -1,39 +1,83 @@
 <div id="tab-stores" style="display:none;">
 
-    <!-- 1. Top Controls (Search & Filters) -->
-    <div class="card p-3 mb-4 border-0 shadow-sm">
-        <div class="row g-2 align-items-center">
-            <div class="col-md-5">
-                <div class="input-group">
-                    <span class="input-group-text bg-light border-0"><svg style="width:16px;height:16px"
-                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="11" cy="11" r="8"></circle>
-                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                        </svg></span>
-                    <input type="text" class="form-control border-0 bg-light" id="storeSearch"
-                        placeholder="Search Store Name or ID..." onkeyup="renderStoreList()">
+    <!-- MASTER VIEW: STORE LIST -->
+    <div id="storeListContainer" class="fade-in">
+        <h2 class="text-primary-custom mb-2">Store Deep Dive</h2>
+        <p class="text-muted mb-4">Detailed performance metrics per store with trend analysis & issue tracking.</p>
+
+        <!-- Filters (Luxury Card) -->
+        <div class="card p-4 mb-4 border-0 shadow-sm">
+            <div class="row g-3 align-items-end">
+                <div class="col-lg-4 col-md-6">
+                    <label class="small text-uppercase fw-bold text-muted mb-1"
+                        style="font-size:0.7rem; letter-spacing:0.5px;">Search Store</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-0"><svg style="width:16px;height:16px"
+                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                            </svg></span>
+                        <input type="text" class="form-control border-0 bg-light" id="storeListSearch"
+                            placeholder="Store Name or ID..." onkeyup="renderStoreTable()">
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <label class="small text-uppercase fw-bold text-muted mb-1"
+                        style="font-size:0.7rem; letter-spacing:0.5px;">Region</label>
+                    <select id="storeListRegion" class="form-select border-0 bg-light"
+                        onchange="updateBranchFilter(); renderStoreTable()">
+                        <option value="">All Regions</option>
+                    </select>
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <label class="small text-uppercase fw-bold text-muted mb-1"
+                        style="font-size:0.7rem; letter-spacing:0.5px;">Branch</label>
+                    <select id="storeListBranch" class="form-select border-0 bg-light" onchange="renderStoreTable()"
+                        disabled>
+                        <option value="">All Branches</option>
+                    </select>
+                </div> <!-- Corrected closing div -->
+                <div class="col-lg-2 col-md-6 text-end">
+                    <button class="btn btn-link text-muted p-0 text-decoration-none small"
+                        onclick="resetStoreFilters()">Reset Filters</button>
                 </div>
             </div>
-            <div class="col-md-3">
-                <select id="storeSelect" class="form-select border-0 bg-light" onchange="loadStoreDetail()">
-                    <option value="">Select a Store...</option>
-                </select>
+        </div>
+
+        <!-- Master Table -->
+        <div class="card border-0 shadow-sm overflow-hidden">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" id="storeMasterTable">
+                    <thead class="bg-light">
+                        <tr class="text-secondary small text-uppercase"
+                            style="font-size: 0.75rem; letter-spacing: 0.5px;">
+                            <th class="py-3 ps-4" style="width: 5%;">Rank</th>
+                            <th class="py-3" style="width: 10%;">Store ID</th>
+                            <th class="py-3" style="width: 30%;">Store Name</th>
+                            <th class="py-3" style="width: 15%;">Branch</th>
+                            <th class="py-3" style="width: 15%;">Region</th>
+                            <th class="py-3 text-end" style="width: 10%;">Last Score</th>
+                            <th class="py-3 text-center" style="width: 15%;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="border-top-0 bg-white" id="storeMasterBody">
+                        <!-- Rows rendered via JS -->
+                    </tbody>
+                </table>
             </div>
-            <div class="col-md-4 text-end">
-                <select id="storeSort" class="form-select d-inline-block w-auto border-0 bg-light text-muted small"
-                    onchange="renderStoreList()">
-                    <option value="name">Sort: Name (A-Z)</option>
-                    <option value="score_asc">Sort: Score (Low-High)</option>
-                    <option value="score_desc">Sort: Score (High-Low)</option>
-                </select>
-                <button class="btn btn-link text-muted"
-                    onclick="document.getElementById('storeSearch').value=''; renderStoreList()">Reset</button>
+            <!-- Pagination Controls (Simple) -->
+            <div class="d-flex justify-content-between align-items-center p-3 border-top bg-light">
+                <span class="small text-muted" id="storeListCount">Showing 0 stores</span>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-secondary border-0" onclick="changePage(-1)">Previous</button>
+                    <button class="btn btn-outline-secondary border-0" onclick="changePage(1)">Next</button>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Store Detail Content (Initially Hidden) -->
-    <div id="storeContent" style="display:none;">
+    <!-- DETAIL VIEW (Initially Hidden) -->
+    <div id="storeContent" style="display:none;" class="fade-in">
 
         <!-- 2. Hero Header (Dark Blue) -->
         <div class="rounded-3 p-4 mb-4 text-white position-relative shadow-sm"
@@ -46,7 +90,7 @@
             <div class="d-flex justify-content-between align-items-start position-relative">
                 <div>
                     <div class="d-flex gap-2 mb-2">
-                        <button class="btn btn-outline-light btn-sm rounded-pill px-3" onclick="showTab('branches')">←
+                        <button class="btn btn-outline-light btn-sm rounded-pill px-3" onclick="showStoreList()">←
                             Back to List</button>
                         <button class="btn btn-light btn-sm rounded-pill px-3 text-primary-custom fw-bold"
                             onclick="alert('Battle Mode Coming Soon!')">⚔️ Select Opponent</button>

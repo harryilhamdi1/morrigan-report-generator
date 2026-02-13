@@ -422,18 +422,132 @@ function initBranches() {
     });
 }
 
-function renderStoreList() {
-    var s = document.getElementById("storeSearch").value.toLowerCase(), sel = document.getElementById("storeSelect"), sort = document.getElementById("storeSort").value;
-    sel.innerHTML = "<option value=''>Select a Store...</option>";
-    var list = Object.values(reportData.stores).filter(x => x.meta.name.toLowerCase().includes(s) || x.meta.code.includes(s));
-    var w = sortedWaves[sortedWaves.length - 1];
-    list.sort((a, b) => {
-        if (sort === "name") return a.meta.name.localeCompare(b.meta.name);
-        var va = a.results[w] ? a.results[w].totalScore : 0, vb = b.results[w] ? b.results[w].totalScore : 0;
-        return sort === "score_asc" ? va - vb : vb - va;
-    });
-    list.forEach(x => { var sc = x.results[w] ? x.results[w].totalScore.toFixed(2) : "N/A"; var opt = document.createElement("option"); opt.value = x.meta.code; opt.textContent = "[" + sc + "] " + x.meta.name; sel.appendChild(opt); });
+// --- Master Store List Logic ---
+var storeListState = { page: 1, limit: 15, total: 0, filteredData: [] };
+
+function initStoreTable() {
+    // Populate Region Filter
+    var regSel = document.getElementById("storeListRegion");
+    if (!regSel) return;
+    var regs = Object.keys(reportData.regions).sort();
+    regs.forEach(r => { var opt = document.createElement("option"); opt.value = r; opt.textContent = r; regSel.appendChild(opt); });
+    renderStoreTable();
 }
+
+function updateBranchFilter() {
+    var reg = document.getElementById("storeListRegion").value;
+    var brSel = document.getElementById("storeListBranch");
+    brSel.innerHTML = "<option value=''>All Branches</option>";
+    brSel.disabled = !reg;
+
+    if (reg) {
+        var branches = Object.keys(reportData.branches).filter(b => {
+            // Find a store in this branch and check its region (approximation, or check branch map)
+            // Better: Iterate all stores to map branch -> region
+            return Object.values(reportData.stores).some(s => s.meta.region === reg && s.meta.branch === b);
+        }).sort();
+
+        branches.forEach(b => { var opt = document.createElement("option"); opt.value = b; opt.textContent = b; brSel.appendChild(opt); });
+    }
+}
+
+function resetStoreFilters() {
+    document.getElementById("storeListSearch").value = "";
+    document.getElementById("storeListRegion").value = "";
+    updateBranchFilter();
+    renderStoreTable();
+}
+
+function renderStoreTable() {
+    var search = document.getElementById("storeListSearch").value.toLowerCase();
+    var reg = document.getElementById("storeListRegion").value;
+    var br = document.getElementById("storeListBranch").value;
+    var cur = sortedWaves[sortedWaves.length - 1];
+
+    // Filter
+    var list = Object.values(reportData.stores).filter(s => {
+        var m = s.meta;
+        return (m.name.toLowerCase().includes(search) || m.code.includes(search)) &&
+            (!reg || m.region === reg) &&
+            (!br || m.branch === br);
+    });
+
+    // Sort by Score Descending
+    list.sort((a, b) => {
+        var sa = a.results[cur] ? a.results[cur].totalScore : 0;
+        var sb = b.results[cur] ? b.results[cur].totalScore : 0;
+        return sb - sa;
+    });
+
+    storeListState.total = list.length;
+    storeListState.filteredData = list;
+
+    // Pagination
+    var totalPages = Math.ceil(list.length / storeListState.limit);
+    if (storeListState.page > totalPages) storeListState.page = totalPages || 1;
+
+    var start = (storeListState.page - 1) * storeListState.limit;
+    var end = start + storeListState.limit;
+    var pageData = list.slice(start, end);
+
+    var tbody = document.getElementById("storeMasterBody");
+    tbody.innerHTML = "";
+
+    pageData.forEach((s, idx) => {
+        var rank = start + idx + 1;
+        var d = s.results[cur];
+        var score = d ? d.totalScore : 0;
+
+        // Luxury Badge Logic
+        var scoreBadge = "";
+        if (score < 84) scoreBadge = `<span class="badge bg-danger rounded-pill px-3">${score.toFixed(2)}</span>`;
+        else if (score >= 95) scoreBadge = `<span class="badge bg-success rounded-pill px-3">${score.toFixed(2)}</span>`;
+        else scoreBadge = `<span class="fw-bold text-dark">${score.toFixed(2)}</span>`;
+
+        var row = `<tr>
+            <td class="ps-4 fw-bold text-secondary">#${rank}</td>
+            <td><span class="badge bg-light text-dark border">${s.meta.code}</span></td>
+            <td><div class="fw-bold text-dark">${s.meta.name}</div></td>
+            <td><span class="badge bg-soft-primary text-primary-custom border-0">${s.meta.branch}</span></td>
+            <td><span class="small text-secondary fw-bold text-uppercase">${s.meta.region}</span></td>
+            <td class="text-end text-dark">${scoreBadge}</td>
+            <td class="text-center">
+                <button class="btn btn-sm btn-outline-primary rounded-pill px-3" onclick="viewStore('${s.meta.code}')">See Details</button>
+            </td>
+        </tr>`;
+        tbody.innerHTML += row;
+    });
+
+    document.getElementById("storeListCount").textContent = `Showing ${start + 1}-${Math.min(end, list.length)} of ${list.length} stores`;
+}
+
+function changePage(dir) {
+    var max = Math.ceil(storeListState.filteredData.length / storeListState.limit);
+    var next = storeListState.page + dir;
+    if (next > 0 && next <= max) {
+        storeListState.page = next;
+        renderStoreTable();
+    }
+}
+
+function viewStore(id) {
+    // Switch Views
+    document.getElementById("storeListContainer").style.display = "none";
+    document.getElementById("storeContent").style.display = "block";
+
+    // Populate dropdown for compatibility (hidden but functional)
+    var sel = document.getElementById("storeSelect");
+    if (sel) sel.value = id;
+
+    loadStoreDetail(id);
+    window.scrollTo(0, 0);
+}
+
+function showStoreList() {
+    document.getElementById("storeContent").style.display = "none";
+    document.getElementById("storeListContainer").style.display = "block";
+}
+
 
 var radarMode = 'region'; // Default
 
@@ -473,8 +587,13 @@ function generateSparkline(data) {
     </svg>`;
 }
 
-function loadStoreDetail() {
-    var c = document.getElementById("storeSelect").value; if (!c) return; document.getElementById("storeContent").style.display = "block";
+function loadStoreDetail(idOverride) {
+    var c = idOverride || document.getElementById("storeSelect").value;
+    // Fallback if accessed via dropdown (rare now)
+    if (!c) c = document.getElementById("storeSelect").value;
+
+    if (!c) return;
+
     var s = reportData.stores[c], cur = s.results[sortedWaves[sortedWaves.length - 1]];
     var currentWaveKey = sortedWaves[sortedWaves.length - 1];
 
@@ -588,4 +707,4 @@ function loadStoreDetail() {
     }
 }
 
-window.onload = function () { initSummary(); initRegions(); initBranches(); renderStoreList(); };
+window.onload = function () { initSummary(); initRegions(); initBranches(); initStoreTable(); };
