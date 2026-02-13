@@ -37,6 +37,30 @@
 
 ---
 
-## 🛠️ Technical Debt & Refactoring
-- [ ] **Modularization:** Move heavily injected HTML strings from JS files into separate Template Literals or JSON config.
-- [ ] **Performance:** Optimize Plotly rendering for slower devices when loading 1000+ stores.
+## 🌟 Feature Roadmap (Phase 4: Granularity & Diagnostics)
+
+### Sprint 4: "The Culprit Finder" (Failed Items UI) 🚨
+**Objective:** Visualize the specific checklist items that caused a low score.
+- [ ] **Failed Items Drill-Down:** In Store Deep Dive, make section rows expandable to show list of failed checklist items (e.g., "Toilet Tisu Habis", "Lampu Mati").
+- [ ] **Recurring Issue Tag:** Highlight items that failed in multiple consecutive waves.
+- [ ] **Comparative Diagnostics:** In Battle Mode, side-by-side comparison of specific failed checkpoints.
+
+### Sprint 5: Trend & Anomaly Detection 📉
+**Objective:** Proactively identify stores with degrading performance or chronic issues.
+- [ ] **Drop Alert:** Flag stores with >10 point drop between waves.
+- [ ] **Chronic Issue Flag:** Identify sections that have remained red (<84) for 3 consecutive waves.
+
+---
+
+## 🛠️ Technical Roadmap (Stability & Future-Proofing)
+
+### Architecture Refactoring (The Great Refactor)
+**Objective:** Transform the monolithic script into a modular, maintainable build system.
+- [ ] **De-coupling HTML:** Move HTML strings from JS to separate `.html` template files in `templates/` directory.
+- [ ] **Config Extraction:** Move hardcoded configurations (weights, action plans, wave definitions) to `config/` JSON/JS files.
+- [ ] **Module Separation:** Split `generate_report_v4.js` into focused modules: `data_loader.js`, `scorer.js`, `aggregator.js`.
+- [ ] **Build System:** Create a robust `build.js` script that assembles modules and templates cleanly, replacing fragile string injection.
+
+### Performance Optimization
+- [ ] **Lazy Loading:** Implement lazy loading for heavy chart data to speed up initial dashboard load.
+- [ ] **Data Minification:** Minify the JSON payload embedded in the HTML to reduce file size.

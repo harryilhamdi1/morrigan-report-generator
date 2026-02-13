@@ -2,90 +2,73 @@
 
 This project generates premium HTML executive summaries and detailed reports for Morrigan store performance data.
 
-## Features
-- **Executive Summary:** High-level KPIs, deltas, and trend graphs.
+## 🚀 Key Features
+
+### 📊 Executive Dashboard
+- **High-level KPIs:** Real-time scoring, deltas, and trend graphs across waves.
 - **Regional & Branch Analysis:** Heatmaps and comparative bar charts with interactive drilldowns.
-- **Branch Strategic Dashboard:** Tornado chart, quadrant matrix, auto-generated insights, and health monitor cards.
-- **Store Deep Dive:** Individual store performance with trend analysis, critical issue tracking, and action plans.
-- **Automated Processing:** Reads from CSV data sources (Waves) and Master Data.
+- **Strategic Matrix:** Tornado charts and quadrant analysis for branch performance.
 
-## Usage
+### ⚔️ Battle Mode (Store Comparison)
+- **Side-by-Side Benchmarking:** Compare two stores directly to identify performance gaps.
+- **Radar Chart:** Visual overlay of strength/weakness areas.
+- **Gap Analysis:** Definition of winning/losing categories.
 
-1.  Place your source `.csv` files in the `CSV/` directory:
-    - `Master Site Morrigan.csv`
-    - `Wave [1-3] [2024-2025].csv`
-2.  Install dependencies:
-    ```bash
-    npm install
-    ```
-3.  Generate the base report:
-    ```bash
-    node generate_report_v4.js
-    ```
-4.  Inject the enhanced Branch Performance dashboard:
-    ```bash
-    node inject_branches.js
-    ```
-5.  Inject the modernized Store Deep Dive table:
-    ```bash
-    node inject_store_list.js
-    ```
-6.  Open the generated `report_v4.html` in your browser.
+### 🗣️ Voice of Customer (VoC) Engine
+- **Sentiment Analysis:** Automated classification of customer feedback (Positive/Negative/Neutral).
+- **Word Cloud:** Visualization of frequently mentioned topics.
+- **Theme Breakdown:** Correlation of sentiment with operational areas (Service, Product, Ambience).
 
-> **Important:** Run steps 3 → 4 → 5 in order. Step 4 relies on anchors that Step 5 replaces.
-
-## Technologies
-- Node.js
-- CSV Parse
-- Plotly.js (CDN)
-- Bootstrap 5 (CDN)
+### 🔍 Diagnostic Granularity
+- **Failed Items Drill-Down:** Identifies specific checklist items that caused a low section score (e.g., "Toilet Tisu Habis" vs just "Toilet Score: 50").
+- **Weighted Scoring:** Accurate calculation based on official Section Weights.
 
 ---
 
-## Known Issues & Root Cause Analysis
+## 🛠️ Usage
 
-### Blank Dashboard After Patching (Resolved 2025-02-12)
+### Quick Start (Automated Workflow)
+We have a comprehensive build script that runs the generator and all injection modules in the correct order:
 
-**Symptom:** After patching `generate_report_v4.js` with updated code, the generated `report_v4.html` displayed a completely blank dashboard — all KPIs showed `--`, charts were empty, and no data loaded.
+1.  **Run the Build Workflow:**
+    ```bash
+    npm run build
+    ```
+    *(Note: You can add `"build": "node generate_report_v4.js && node inject_branches.js && node inject_store_list.js && node inject_voc.js"` to `package.json` scripts)*
 
-**Root Cause: String-Array Architecture + Escape Chain Corruption**
+    **OR run manually in sequence:**
+    ```bash
+    # 1. Generate Base Report
+    node generate_report_v4.js
 
-The `generate_report_v4.js` file generates HTML using a **string array pattern**:
-```javascript
-var parts = [
-    '<html>',
-    '<script>',
-    'function initBranches(){',
-    '   var x = "hello";',   // ← each line of JS is a string element
-    '}',
-    '</script>'
-];
-return parts.join('\n');
-```
+    # 2. Inject Branch Analysis
+    node inject_branches.js
 
-The old patching approach (`patch_report_v4.js`) would:
-1. Read each line of new JS code from `new_init_branches_matrix.js`
-2. Escape single quotes (`'` → `\'`)
-3. Wrap each line in single quotes: `'escaped line content',`
-4. Splice these into the `parts` array in `generate_report_v4.js`
+    # 3. Inject Store Deep Dive & Battle Mode
+    node inject_store_list.js
 
-**This broke because:**
-- **Template literals** (backtick strings with `${}`) inside the new code got double-escaped or misaligned.
-- **HTML content** inside JS strings (e.g. `innerHTML = "<div>..."`) introduced nested quote conflicts.
-- **The `parts.join('\n')` output** would concatenate corrupted strings, producing malformed HTML where multiple lines merged into one, breaking the `<script>` tag entirely.
-- Once the `<script>` tag had invalid syntax, **all JavaScript** on the page failed — not just `initBranches`, but also `initSummary`, `initRegions`, etc. This caused the fully blank page.
+    # 4. Inject Voice of Customer Module
+    node inject_voc.js
+    ```
 
-**Solution:** Created `inject_branches.js` — a **post-processor** that:
-1. First generates the clean, working `report_v4.html` using the original `generate_report_v4.js`
-2. Then directly replaces the `initBranches` function in the **already-generated HTML** using simple string replacement
-3. This completely bypasses the fragile escape chain
+2.  **Open the Report:**
+    Open `ESS Retail In Depth Analysis.html` in your browser.
 
-**Key files:**
+---
+
+## 📂 Project Structure
+
 | File | Purpose |
 |------|---------|
-| `generate_report_v4.js` | Base report generator (DO NOT patch this file) |
-| `new_init_branches_matrix.js` | The enhanced `initBranches()` source code |
-| `inject_branches.js` | Post-processor that injects the new function into HTML |
-| `patch_report_v4.js` | ⚠️ Old approach — DO NOT USE (causes corruption) |
+| `generate_report_v4.js` | Main logic for data processing & base HTML generation |
+| `scoring_logic_vFinal.js` | Reference for validated scoring rules |
+| `item_drilldown.js` | Logic to identify specific failed checklist items |
+| `voc_analysis.js` | Engine for processing qualitative customer feedback |
+| `inject_*.js` | Post-processors that inject enhanced UI modules into the HTML |
+| `CSV/` | Raw data source (Waves + Master Data + Weights) |
 
-**Lesson Learned:** When a code generator uses a string-array-to-join pattern for HTML output, avoid patching the generator itself. Instead, post-process the generated output directly.
+---
+
+## ⚠️ Important Notes
+- **Source of Truth:** The Final Score in the CSV is treated as the absolute truth. Our internal logic mimicsit but prioritizes the CSV value if available.
+- **Injection Logic:** The system uses a "Post-Processing Injection" pattern. We generate a base HTML file first, then use regex/string replacement to swap out simplified placeholder functions with complex, interactive modules. This avoids escaping hell in the main generator script.
