@@ -305,7 +305,7 @@ function renderModernStoreDetail(s, container, isFullscreen) {
         <div class="card border-0 shadow-lg overflow-hidden ${isFullscreen ? 'rounded-0 min-vh-100' : ''}">
             <!-- PREMIUM HEADER -->
             <div class="card-header bg-primary-custom text-white p-4 position-relative" style="background: linear-gradient(135deg, #002060 0%, #1e3a8a 100%);">
-                <div class="d-flex justify-content-between align-items-center mb-3 position-relative" style="z-index:2">
+                <div class="d-flex justify-content-between align-items-center mb-3 position-relative" style="z-index:100">
                     <div class="d-flex align-items-center">
                         ${backBtn}
                         <!-- MODERN BATTLE DROPDOWN -->
@@ -437,7 +437,7 @@ function renderModernStoreDetail(s, container, isFullscreen) {
     var tableBody = document.querySelector("#stSectionTable_" + s.meta.code + " tbody");
     var issuesDiv = document.getElementById("stIssuesList_" + s.meta.code);
 
-    issuesDiv.innerHTML = ""; 
+    issuesDiv.innerHTML = "";
 
     if (curData && curData.sections) {
         Object.entries(curData.sections).forEach(([k, v]) => {
@@ -493,7 +493,7 @@ function renderModernStoreDetail(s, container, isFullscreen) {
 function toggleBattleDropdown(code) {
     const dd = document.getElementById('battleDropdown_' + code);
     const list = document.getElementById('battleList_' + code);
-    
+
     if (dd.style.display === 'none') {
         dd.style.display = 'block';
         if (list.innerHTML.includes('Loading')) {
@@ -509,18 +509,18 @@ function populateBattleList(code, filter) {
     const curWave = sortedWaves[sortedWaves.length - 1];
     const list = document.getElementById('battleList_' + code);
     const stores = Object.values(reportData.stores);
-    
+
     filter = filter.toLowerCase();
-    
-    const matches = stores.filter(x => 
-        x.meta.code !== code && 
+
+    const matches = stores.filter(x =>
+        x.meta.code !== code &&
         (x.meta.name.toLowerCase().includes(filter) || x.meta.code.toLowerCase().includes(filter))
-    ).sort((a,b) => {
+    ).sort((a, b) => {
         const scA = (a.results[curWave] && a.results[curWave].totalScore) ? a.results[curWave].totalScore : 0;
         const scB = (b.results[curWave] && b.results[curWave].totalScore) ? b.results[curWave].totalScore : 0;
         return scB - scA;
     });
-    
+
     if (matches.length === 0) {
         list.innerHTML = '<div class="p-3 text-center text-muted small">No matches found</div>';
         return;
@@ -555,7 +555,7 @@ function selectBattleOpponent(codeA, codeB, nameB) {
 
 // Global click listener to close dropdowns (injected once)
 if (!window.battleDropdownListenerAdded) {
-    window.addEventListener('click', function(e) {
+    window.addEventListener('click', function (e) {
         if (!e.target.closest('.battle-dropdown-container')) {
             document.querySelectorAll('[id^=battleDropdown_]').forEach(el => el.style.display = 'none');
         }
@@ -580,7 +580,7 @@ function renderComparison(codeA, codeB) {
     if (!sA || !sB) return;
 
     container.style.display = 'block';
-    
+
     // Data Prep
     const sections = Object.keys(reportData.summary[curWave].sections).sort();
     const scoresA = sections.map(sec => (sA.results[curWave] && sA.results[curWave].sections[sec] ? sA.results[curWave].sections[sec] : 0));
@@ -659,7 +659,7 @@ function renderComparison(codeA, codeB) {
         const diff = valA - valB;
         const isWin = diff > 0;
         const isTie = Math.abs(diff) < 0.01;
-        
+
         const row = document.createElement('tr');
         row.innerHTML = `
             <td class="ps-4 fw-bold text-muted small text-uppercase">${sec}</td>
