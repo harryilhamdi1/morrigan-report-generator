@@ -19,6 +19,51 @@ const ACTION_PLANS = {
 
 const THRESHOLD_SCORE = 84;
 
+// Validated Section Item Codes (from scoring_logic_vFinal.js)
+const SECTION_ITEMS = {
+        'A': { codes: [759166, 759167, 759168, 759169, 759170, 759171], exclude: [] },
+        'B': { codes: [759174, 759175, 759176, 759177, 759178, 759179], exclude: [] },
+        'C': { codes: [759181, 759182, 759183, 759184, 759185, 759186, 759187, 759188, 759189, 759190, 759191, 759192], exclude: [] },
+        'D': { codes: [759194, 759195, 759196, 759197, 759198, 759199, 759200, 759201], exclude: [] },
+        'E': { codes: [759204, 759206, 759207, 759208, 759209, 759210, 759212, 759213, 759214, 759215], exclude: [] },
+        'F': { codes: [759220, 759221, 759222, 759223, 759224, 759225, 759226, 759227, 759228], exclude: [759221] },
+        'G': { codes: [759231, 759233, 759211, 759569, 759235, 759236, 759237, 759243, 759239], exclude: [759211] },
+        'H': { codes: [759247, 759248, 759249, 759250, 759251, 759252, 759253, 759254, 759255, 759256, 759257, 759258, 759259, 759260, 759261, 759267, 759262, 759263, 759265, 759266], exclude: [] },
+        'I': { codes: [759270, 759271, 759272, 759273, 759274, 759275, 759276, 759277], exclude: [] },
+        'J': { codes: [759280, 759281, 759282, 759283, 759284], exclude: [759282, 759283] },
+        'K': { codes: [759287, 759288, 759289], exclude: [] }
+};
+
+let SECTION_WEIGHTS = {};
+
+async function loadSectionWeights() {
+        try {
+                const weightPath = path.join(__dirname, 'CSV', 'Section Weight.csv');
+                const content = await require('fs').readFileSync(weightPath, 'utf8');
+                const records = parse(content, { columns: true, delimiter: ';', skip_empty_lines: true, trim: true, bom: true });
+                records.forEach(r => {
+                        const vals = Object.values(r);
+                        const name = (vals[0] || '').trim();
+                        const weight = parseInt(vals[1]);
+                        if (name && weight) {
+                                const letterMatch = name.match(/([A-K])\./);
+                                if (letterMatch) SECTION_WEIGHTS[letterMatch[1]] = weight;
+                        }
+                });
+                console.log('Loaded Section Weights:', SECTION_WEIGHTS);
+        } catch (err) {
+                console.error('Error loading Section Weights:', err.message);
+        }
+}
+
+function parseItemScore(val) {
+        if (!val) return null;
+        const s = String(val);
+        if (s.includes('(1/1)') || s.includes('100.00')) return 1;
+        if (s.includes('(0/1)') || s.includes('0.00')) return 0;
+        return null;
+}
+
 function normalizeString(str) {
         if (!str) return 'UNKNOWN';
         return str.trim().toUpperCase();
@@ -72,7 +117,8 @@ async function processWave(filePath, waveName, year, masterMap) {
                         wave: waveName,
                         year: year,
                         sections: {},
-                        qualitative: []
+                        qualitative: [],
+                        failedItems: []
                 };
 
                 if (storeData.region === 'CLOSED' || storeData.branch === 'CLOSED') return;
@@ -129,6 +175,24 @@ async function processWave(filePath, waveName, year, masterMap) {
                         }
                 });
 
+                // Item-level drill-down: identify failed items
+                const headers = Object.keys(record);
+                const getCol = (code) => headers.find(h => h.includes(`(${code})`) && !h.endsWith('- Text'));
+                Object.entries(SECTION_ITEMS).forEach(([letter, config]) => {
+                        config.codes.forEach(code => {
+                                if (config.exclude.includes(code)) return;
+                                const col = getCol(code);
+                                if (!col) return;
+                                const val = record[col];
+                                const score = parseItemScore(val);
+                                if (score === 0) {
+                                        const itemName = col.replace(/^\(\d+\)\s*/, '').substring(0, 80);
+                                        storeData.failedItems.push({ section: letter, code: code, item: itemName });
+                                }
+                        });
+                });
+
+                // CSV Final Score = source of truth
                 if (finalScore !== null) storeData.totalScore = finalScore;
                 else {
                         const vals = Object.values(storeData.sections);
@@ -147,6 +211,7 @@ async function processWave(filePath, waveName, year, masterMap) {
 const { analyzeFeedback } = require('./voc_analysis');
 
 async function processAll() {
+        await loadSectionWeights();
         const masterMap = await loadMasterData(path.join(__dirname, 'CSV', 'Master Site Morrigan.csv'));
         const waves = [
                 { file: 'Wave 1 2024.csv', name: 'Wave 1', year: 2024 },
@@ -187,7 +252,8 @@ async function processAll() {
                         };
                 }
                 hierarchy.stores[entry.siteCode].results[waveKey] = {
-                        sections: entry.sections, qualitative: entry.qualitative, totalScore: entry.totalScore
+                        sections: entry.sections, qualitative: entry.qualitative, totalScore: entry.totalScore,
+                        failedItems: entry.failedItems || []
                 };
 
                 const addToHierarchy = (levelObj, record) => {
