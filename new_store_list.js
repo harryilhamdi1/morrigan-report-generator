@@ -293,21 +293,13 @@ function renderModernStoreDetail(s, container, isFullscreen) {
         ? `<button class="btn btn-sm btn-outline-light rounded-pill px-3" onclick="window.open('?store=${s.meta.code}', '_blank')">🔗 Open Independent Window</button>`
         : "";
 
-    // Qualitative Feedback (Found in last column of CSV usually)
+    // Qualitative Feedback
     var qualitativeText = "No specific qualitative feedback recorded for this wave.";
     if (curData && curData.qualitative && curData.qualitative.length > 0) {
-        // Join multiple feedbacks if any
         qualitativeText = curData.qualitative.map(t => `<p class="mb-2">“${t}”</p>`).join("");
     } else {
         qualitativeText = `<p class="text-muted fst-italic">${qualitativeText}</p>`;
     }
-
-    // Comparison Options
-    var comparisonOptions = Object.values(reportData.stores)
-        .filter(x => x.meta.code !== s.meta.code) // Exclude self
-        .sort((a, b) => a.meta.name.localeCompare(b.meta.name))
-        .map(x => `<option value="${x.meta.code}">${x.meta.name} (${(x.results[curWave]?.totalScore || 0).toFixed(1)})</option>`)
-        .join("");
 
     container.innerHTML = `
         <div class="card border-0 shadow-lg overflow-hidden ${isFullscreen ? 'rounded-0 min-vh-100' : ''}">
@@ -316,13 +308,30 @@ function renderModernStoreDetail(s, container, isFullscreen) {
                 <div class="d-flex justify-content-between align-items-center mb-3 position-relative" style="z-index:2">
                     <div class="d-flex align-items-center">
                         ${backBtn}
-                        <!-- COMPARE CONTROL -->
-                        <div class="d-flex align-items-center bg-white rounded-pill px-3 py-1 ms-3 shadow-sm" style="transition:transform 0.2s">
-                            <span class="fw-bold text-muted me-2 text-uppercase small">⚔️ VS</span>
-                            <select class="form-select form-select-sm border-0 bg-transparent fw-bold text-primary" style="width:220px;box-shadow:none;cursor:pointer" onchange="renderComparison('${s.meta.code}', this.value)">
-                                <option value="">Select Opponent...</option>
-                                ${comparisonOptions}
-                            </select>
+                        <!-- MODERN BATTLE DROPDOWN -->
+                        <div class="position-relative ms-3 battle-dropdown-container" style="z-index: 1060">
+                            <button class="btn btn-light btn-sm rounded-pill shadow-sm fw-bold text-primary px-3 d-flex align-items-center gap-2 border-0" 
+                                    style="height: 38px;"
+                                    onclick="toggleBattleDropdown('${s.meta.code}')">
+                                <span class="badge bg-primary rounded-pill me-1">VS</span>
+                                <span id="battleOpponentName_${s.meta.code}" class="text-truncate" style="max-width:150px">Select Opponent...</span>
+                                <span class="small opacity-50">▼</span>
+                            </button>
+                            
+                            <!-- DROPDOWN PANEL -->
+                            <div id="battleDropdown_${s.meta.code}" class="position-absolute bg-white shadow-lg rounded-3 mt-2 p-2 overflow-hidden animate__animated animate__fadeIn" 
+                                 style="display:none; width:320px; left:0; z-index:1070; max-height:450px; border:1px solid rgba(0,0,0,0.1)">
+                                 
+                                 <div class="input-group input-group-sm mb-2 border rounded-2 bg-light">
+                                    <span class="input-group-text border-0 bg-transparent">🔍</span>
+                                    <input type="text" class="form-control border-0 bg-transparent shadow-none" placeholder="Search store name..." 
+                                           onkeyup="filterBattleList('${s.meta.code}', this.value)" onclick="event.stopPropagation()">
+                                 </div>
+                                 
+                                 <div id="battleList_${s.meta.code}" class="overflow-auto custom-scrollbar" style="max-height:300px">
+                                    <div class="p-4 text-center text-muted small"><span class="spinner-border spinner-border-sm"></span> Loading...</div>
+                                 </div>
+                            </div>
                         </div>
                     </div>
                     <div>${openWindowBtn}</div>
@@ -337,7 +346,6 @@ function renderModernStoreDetail(s, container, isFullscreen) {
                          <div class="small opacity-75 text-uppercase fw-bold letter-spacing-1">Current Final Score</div>
                     </div>
                 </div>
-                <!-- Background Pattern -->
                 <div style="position:absolute;top:0;right:0;bottom:0;left:0;opacity:0.05;background-image: radial-gradient(white 1px, transparent 1px); background-size: 20px 20px; z-index:1; pointer-events:none"></div>
             </div>
 
@@ -409,10 +417,10 @@ function renderModernStoreDetail(s, container, isFullscreen) {
     `;
 
     // 1. Render Trend Chart
-    var yDiv = sortedWaves.map(w => s.results[w] ? s.results[w].totalScore : null);
+    var yDiv = sortedWaves.map(w => (s.results[w] ? s.results[w].totalScore : null));
     var xDiv = sortedWaves;
 
-    Plotly.newPlot(`stTrendChart_${s.meta.code}`, [{
+    Plotly.newPlot("stTrendChart_" + s.meta.code, [{
         x: xDiv, y: yDiv, type: 'scatter', mode: 'lines+markers+text',
         text: yDiv.map(v => v ? v.toFixed(1) : ""), textposition: "top center",
         line: { color: '#002060', width: 4, shape: 'spline' },
@@ -426,20 +434,17 @@ function renderModernStoreDetail(s, container, isFullscreen) {
     }, { responsive: true, displayModeBar: false });
 
     // 2. Render Critical Issues & Breakdown Table
-    var tableBody = document.querySelector(`#stSectionTable_${s.meta.code} tbody`);
-    var issuesDiv = document.getElementById(`stIssuesList_${s.meta.code}`);
+    var tableBody = document.querySelector("#stSectionTable_" + s.meta.code + " tbody");
+    var issuesDiv = document.getElementById("stIssuesList_" + s.meta.code);
 
-    issuesDiv.innerHTML = ""; // Clear
+    issuesDiv.innerHTML = ""; 
 
     if (curData && curData.sections) {
         Object.entries(curData.sections).forEach(([k, v]) => {
             var isCritical = v < 84;
-
-            // Build Mini Trend Data for this section
             var sectionTrend = sortedWaves.map(w => (s.results[w] && s.results[w].sections && s.results[w].sections[k]) ? s.results[w].sections[k] : 0);
-            var trendId = `spark_${s.meta.code}_${k.substring(0, 5).replace(/\W/g, '')}_${Math.random().toString(36).substr(2, 5)}`;
+            var trendId = "spark_" + s.meta.code + "_" + k.substring(0, 5).replace(/\W/g, '') + "_" + Math.random().toString(36).substr(2, 5);
 
-            // Table Row
             var tr = document.createElement("tr");
             tr.innerHTML = `
                 <td class="ps-4 fw-bold text-dark">${k}</td>
@@ -449,7 +454,6 @@ function renderModernStoreDetail(s, container, isFullscreen) {
             `;
             tableBody.appendChild(tr);
 
-            // Render Sparkline immediate
             Plotly.newPlot(trendId, [{
                 x: [1, 2, 3, 4, 5], y: sectionTrend, type: 'scatter', mode: 'lines',
                 line: { color: isCritical ? '#EF4444' : '#10B981', width: 2 },
@@ -462,9 +466,8 @@ function renderModernStoreDetail(s, container, isFullscreen) {
                 height: 40, width: 120
             }, { responsive: false, displayModeBar: false, staticPlot: true });
 
-            // Critical Issue Card
             if (isCritical) {
-                var action = reportData.actionPlanConfig[k] || "Review operational standards immediately. Scores below 84 require documented action plan.";
+                var action = reportData.actionPlanConfig[k] || "Review operational standards immediately.";
                 issuesDiv.innerHTML += `
                     <div class="col-md-6">
                         <div class="p-3 bg-white border border-danger rounded-3 h-100 shadow-sm" style="border-left-width: 5px !important;">
@@ -484,6 +487,82 @@ function renderModernStoreDetail(s, container, isFullscreen) {
         issuesDiv.innerHTML = `<div class="col-12"><div class="alert alert-success border-0 shadow-sm d-flex align-items-center"><span class="fs-2 me-3">🎉</span><div><h6 class="alert-heading fw-bold mb-0">Excellent Performance!</h6><p class="mb-0 small">No critical issues found in this wave.</p></div></div></div>`;
     }
 }
+
+// --- HELPER FUNCTIONS FOR MODERN BATTLE DROPDOWN ---
+
+function toggleBattleDropdown(code) {
+    const dd = document.getElementById('battleDropdown_' + code);
+    const list = document.getElementById('battleList_' + code);
+    
+    if (dd.style.display === 'none') {
+        dd.style.display = 'block';
+        if (list.innerHTML.includes('Loading')) {
+            populateBattleList(code, '');
+        }
+    } else {
+        dd.style.display = 'none';
+    }
+}
+
+function populateBattleList(code, filter) {
+    const s = reportData.stores[code];
+    const curWave = sortedWaves[sortedWaves.length - 1];
+    const list = document.getElementById('battleList_' + code);
+    const stores = Object.values(reportData.stores);
+    
+    filter = filter.toLowerCase();
+    
+    const matches = stores.filter(x => 
+        x.meta.code !== code && 
+        (x.meta.name.toLowerCase().includes(filter) || x.meta.code.toLowerCase().includes(filter))
+    ).sort((a,b) => {
+        const scA = (a.results[curWave] && a.results[curWave].totalScore) ? a.results[curWave].totalScore : 0;
+        const scB = (b.results[curWave] && b.results[curWave].totalScore) ? b.results[curWave].totalScore : 0;
+        return scB - scA;
+    });
+    
+    if (matches.length === 0) {
+        list.innerHTML = '<div class="p-3 text-center text-muted small">No matches found</div>';
+        return;
+    }
+
+    list.innerHTML = matches.map(x => {
+        const sc = (x.results[curWave] && x.results[curWave].totalScore) ? x.results[curWave].totalScore : 0;
+        const colorClass = sc >= 90 ? 'text-primary' : (sc < 84 ? 'text-danger' : 'text-warning');
+        return `
+            <div class="d-flex justify-content-between align-items-center p-2 border-bottom hover-bg-light cursor-pointer" 
+                 onclick="selectBattleOpponent('${code}', '${x.meta.code}', '${x.meta.name}')" 
+                 style="transition:background-color 0.2s">
+                 <div>
+                    <div class="fw-bold small text-dark">${x.meta.name}</div>
+                    <div class="text-muted" style="font-size:0.75rem">${x.meta.region}</div>
+                 </div>
+                 <div class="fw-bold ${colorClass}">${sc.toFixed(1)}</div>
+            </div>
+        `;
+    }).join("");
+}
+
+function filterBattleList(code, val) {
+    populateBattleList(code, val);
+}
+
+function selectBattleOpponent(codeA, codeB, nameB) {
+    document.getElementById('battleOpponentName_' + codeA).textContent = nameB;
+    document.getElementById('battleDropdown_' + codeA).style.display = 'none';
+    renderComparison(codeA, codeB);
+}
+
+// Global click listener to close dropdowns (injected once)
+if (!window.battleDropdownListenerAdded) {
+    window.addEventListener('click', function(e) {
+        if (!e.target.closest('.battle-dropdown-container')) {
+            document.querySelectorAll('[id^=battleDropdown_]').forEach(el => el.style.display = 'none');
+        }
+    });
+    window.battleDropdownListenerAdded = true;
+}
+
 
 // --- BATTLE MODE LOGIC ---
 function renderComparison(codeA, codeB) {
@@ -567,6 +646,7 @@ function renderComparison(codeA, codeB) {
             </div>
             <style>
                 .gradient-battle { background: linear-gradient(135deg, #1e3a8a 0%, #4338ca 50%, #7e22ce 100%); }
+                .hover-bg-light:hover { background-color: #f8f9fa !important; }
             </style>
         </div>
     `;
