@@ -397,35 +397,36 @@ function renderBranchKPIs(top, fast, gap, hExc, hWarn, hCrit) {
 }
 
 function renderBranchMomentumChart(brData) {
-    // Consultant-grade Lollipop Chart: Clean, single-axis ranking visualization
-    // Sort by Score descending (best at top)
+    // Consultant-grade Lollipop Chart: Refined for maximum clarity (Opus Style)
+    // Sort by Score descending
     var sorted = [...brData].sort((a, b) => a.s - b.s);
     var yNames = sorted.map(d => d.n);
     var xScores = sorted.map(d => d.s);
-    var momValues = sorted.map(d => d.mom);
 
-    // Color logic: Green (>=95 Excellent), Amber (>=84 Warning), Red (<84 Critical)
+    // Color logic: Green (>=95), Amber (>=84), Red (<84)
     var dotColors = xScores.map(s => s >= 95 ? '#059669' : (s >= 84 ? '#D97706' : '#DC2626'));
 
-    // Dynamic Height: 45px per branch, min 500
-    var dynamicHeight = Math.max(500, yNames.length * 45);
+    // Dynamic Height
+    var dynamicHeight = Math.max(550, yNames.length * 50);
 
-    // --- Trace 1: Thin horizontal "stem" lines from a baseline ---
-    // We'll use a bar trace with very low opacity as the "stem"
-    var baselineScore = 70; // Visual baseline for the lollipop stems
+    // Calculate Average
+    var avgScore = xScores.length > 0 ? xScores.reduce((a, b) => a + b, 0) / xScores.length : 0;
+
+    // --- Trace 1: Lollipop Stems ---
+    var baselineScore = 70;
     var stemTrace = {
         y: yNames,
         x: xScores.map(s => s - baselineScore),
         base: Array(yNames.length).fill(baselineScore),
         type: 'bar',
         orientation: 'h',
-        marker: { color: dotColors.map(c => c + '30'), line: { width: 0 } }, // Very faint colored stems
-        width: 0.15, // Thin stems
+        marker: { color: dotColors.map(c => c + '25'), line: { width: 0 } }, // 25% opacity stems
+        width: 0.15,
         hoverinfo: 'skip',
         showlegend: false
     };
 
-    // --- Trace 2: Score Dots (the "lollipop heads") ---
+    // --- Trace 2: Lollipop Heads (Dots) ---
     var dotTrace = {
         y: yNames,
         x: xScores,
@@ -433,7 +434,7 @@ function renderBranchMomentumChart(brData) {
         mode: 'markers',
         marker: {
             color: dotColors,
-            size: 14,
+            size: 16,
             line: { color: 'white', width: 2 },
             symbol: 'circle'
         },
@@ -441,65 +442,94 @@ function renderBranchMomentumChart(brData) {
         showlegend: false
     };
 
-    // --- Annotations: Score labels + Momentum badges ---
+    // --- Annotations & Layout Adjustments ---
     var annotations = [];
+
+    // 1. Data Labels (Scores & Momentum)
     sorted.forEach((d, i) => {
-        // Score label (to the right of the dot)
+        // Score: Add bgcolor='white' to mask lines behind the text
         annotations.push({
             x: d.s + 1.2,
             y: d.n,
             text: '<b>' + d.s.toFixed(1) + '</b>',
             showarrow: false,
             font: { size: 12, family: 'Inter', color: '#111827', weight: '700' },
-            xanchor: 'left'
+            xanchor: 'left',
+            bgcolor: 'white', // Critical for readability
+            borderpad: 2
         });
 
-        // Momentum badge (further right, colored)
+        // Momentum Badge
         var momColor = d.mom >= 0 ? '#059669' : '#DC2626';
         var momIcon = d.mom >= 0 ? '▲' : '▼';
-        var momText = momIcon + ' ' + Math.abs(d.mom).toFixed(1);
         annotations.push({
-            x: d.s + 5.5,
+            x: d.s + 6.0, // Shifted slightly right to accommodate white background
             y: d.n,
-            text: momText,
+            text: momIcon + ' ' + Math.abs(d.mom).toFixed(1),
             showarrow: false,
             font: { size: 10, family: 'Inter', color: momColor, weight: '600' },
             xanchor: 'left'
         });
     });
 
-    // --- Threshold reference line at 84 ---
+    // 2. Reference Lines
     var shapes = [
+        // Threshold Line (Red Dash) - Layer 'above' to sit over stems, but below dots
         {
             type: 'line',
             x0: 84, x1: 84,
             y0: -0.5, y1: yNames.length - 0.5,
-            line: { color: '#EF4444', width: 2, dash: 'dash' },
+            line: { color: '#EF4444', width: 1.5, dash: 'dash' },
+            layer: 'below'
+        },
+        // Average Line (Blue Dot)
+        {
+            type: 'line',
+            x0: avgScore, x1: avgScore,
+            y0: -0.5, y1: yNames.length - 0.5,
+            line: { color: '#4472C4', width: 1.5, dash: 'dot' },
             layer: 'below'
         }
     ];
 
-    // Threshold label
+    // 3. Reference Labels (Split Top/Bottom to avoid collision)
+
+    // Average Label (TOP of chart)
+    annotations.push({
+        x: avgScore,
+        y: yNames.length - 0.5, // Top of plotting area
+        text: '<b>AVG:' + avgScore.toFixed(1) + '</b>',
+        showarrow: false,
+        font: { size: 10, color: '#4472C4', family: 'Inter', weight: 'bold' },
+        yanchor: 'bottom',
+        xanchor: 'center',
+        bgcolor: '#FFFFFF',
+        yshift: 5
+    });
+
+    // Threshold Label (BOTTOM of chart)
     annotations.push({
         x: 84,
-        y: yNames.length - 0.5,
-        text: '<b>THRESHOLD 84</b>',
+        y: -0.5, // Bottom of plotting area
+        text: '<b>TARGET: 84</b>',
         showarrow: false,
-        font: { size: 9, color: '#EF4444', family: 'Inter' },
-        yanchor: 'bottom',
-        xanchor: 'center'
+        font: { size: 10, color: '#EF4444', family: 'Inter', weight: 'bold' },
+        yanchor: 'top',
+        xanchor: 'center',
+        bgcolor: '#FFFFFF',
+        yshift: -5
     });
 
     Plotly.newPlot("branchMomentumChart", [stemTrace, dotTrace], {
         xaxis: {
-            title: { text: 'PERFORMANCE SCORE', font: { size: 11, color: '#6B7280', family: 'Inter', weight: '700' } },
-            range: [baselineScore, 105],
+            title: { text: '', font: { size: 11, color: '#9CA3AF' } }, // Remove axis title, redundancy
+            range: [baselineScore, 108], // Slightly more breathing room on right
             showgrid: true,
             gridcolor: '#F3F4F6',
-            gridwidth: 1,
             zeroline: false,
             tickfont: { size: 11, color: '#9CA3AF', family: 'Inter' },
-            dtick: 5
+            dtick: 5,
+            side: 'top' // Move X-Axis ticks to top for better readability like a table
         },
         yaxis: {
             automargin: true,
@@ -508,17 +538,16 @@ function renderBranchMomentumChart(brData) {
         },
         shapes: shapes,
         annotations: annotations,
-        margin: { l: 180, r: 100, t: 20, b: 50 },
+        margin: { l: 180, r: 80, t: 60, b: 40 }, // Increased top margin for X-axis and Avg Label
         showlegend: false,
         paper_bgcolor: 'rgba(0,0,0,0)',
         plot_bgcolor: 'rgba(0,0,0,0)',
         height: dynamicHeight,
         font: { family: 'Inter' },
         hovermode: 'closest',
-        bargap: 0.4
+        bargap: 0.5
     }, config);
 }
-
 function renderBranchMatrixChart(brData) {
     var x = brData.map(d => d.s);
     var y = brData.map(d => d.mom);
