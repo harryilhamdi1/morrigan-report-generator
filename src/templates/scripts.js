@@ -305,81 +305,117 @@ function initRegions() {
 
     // 3. Leaderboard
     var cont = document.getElementById("regionDetailCards");
-    cont.innerHTML = "";
-    var sortedRegs = regKeys.map(r => {
-        var d = reportData.regions[r][curWave]; return { n: r, s: d ? d.sum / d.count : 0, d: d };
-    }).sort((a, b) => b.s - a.s);
+    if (cont) {
+        cont.innerHTML = "";
+        var sortedRegsMain = regKeys.map(r => {
+            var d = reportData.regions[r][curWave]; return { n: r, s: d ? d.sum / d.count : 0, d: d };
+        }).sort((a, b) => b.s - a.s);
 
-    sortedRegs.forEach((item, idx) => {
-        var d = item.d; if (!d) return;
-        var score = item.s;
-        var prevW = waves.length > 1 ? waves[waves.length - 2] : null;
-        var prevD = prevW ? reportData.regions[item.n][prevW] : null;
-        var prevS = prevD ? prevD.sum / prevD.count : 0;
-        var diff = score - prevS;
+        sortedRegsMain.forEach((item, idx) => {
+            var d = item.d; if (!d) return;
+            var score = item.s;
+            var waves = sortedWaves;
+            var prevW = waves.length > 1 ? waves[waves.length - 2] : null;
+            var prevD = prevW ? reportData.regions[item.n][prevW] : null;
+            var prevS = prevD ? prevD.sum / prevD.count : 0;
+            var diff = score - prevS;
 
-        var secs = Object.entries(d.sections).map(([k, v]) => ({ k: k, v: v.sum / v.count })).sort((a, b) => a.v - b.v).slice(0, 3);
-        var weakHTML = secs.map(x => `<div class="d-flex justify-content-between align-items-center mb-1 text-danger small" ><span class="text-truncate" style="max-width:180px">${x.k}</span><strong>${x.v.toFixed(1)}</strong></div> `).join("");
-        var rankBadge = idx < 3 ? `<span class="rank-badge rank-top-${idx + 1} shadow-sm" style="width:32px;height:32px;font-size:1rem;" > ${idx + 1}</span> ` : ` <span class="badge bg-light text-dark border" > #${idx + 1}</span> `;
+            var secs = Object.entries(d.sections).map(([k, v]) => ({ k: k, v: v.sum / v.count })).sort((a, b) => a.v - b.v).slice(0, 3);
+            var weakHTML = secs.map(x => `<div class="d-flex justify-content-between align-items-center mb-1 text-danger small" ><span class="text-truncate" style="max-width:180px">${x.k}</span><strong>${x.v.toFixed(1)}</strong></div> `).join("");
+            var rankBadge = idx < 3 ? `<span class="rank-badge rank-top-${idx + 1} shadow-sm" style="width:32px;height:32px;font-size:1rem;" > ${idx + 1}</span> ` : ` <span class="badge bg-light text-dark border" > #${idx + 1}</span> `;
 
-        var col = document.createElement("div");
-        col.className = "col-lg-4 col-md-6";
-        col.innerHTML = `
-                <div class="card h-100 shadow-hover border-0" style="transition: transform 0.2s;" >
-                    <div class="card-body p-4 position-relative">
-                        <div class="position-absolute top-0 end-0 m-3">${rankBadge}</div>
-                        <h5 class="fw-bold text-primary-custom mb-1">${item.n}</h5>
-                        <div class="text-muted small mb-3">${d.count} Outlet Aktif</div>
-                        <div class="d-flex align-items-center mb-4">
-                            <h2 class="display-5 fw-bold mb-0 me-3 ${score < 84 ? " text-danger" : "text-primary-custom"}">${score.toFixed(2)}</h2>
-                        <div class="${diff >= 0 ? " text-success" : "text-danger"} fw-bold small">
-                        ${diff >= 0 ? "▲" : "▼"} ${Math.abs(diff).toFixed(2)}
-                    </div>
+            var col = document.createElement("div");
+            col.className = "col-lg-4 col-md-6";
+            col.innerHTML = `
+                    <div class="card h-100 shadow-hover border-0" style="transition: transform 0.2s; border-radius: 12px; overflow: hidden;" >
+                        <div class="card-body p-4 position-relative">
+                            <div class="position-absolute top-0 end-0 m-3">${rankBadge}</div>
+                            <h5 class="fw-bold text-primary-custom mb-1">${item.n}</h5>
+                            <div class="text-muted small mb-3">${d.count} Outlet Aktif</div>
+                            <div class="d-flex align-items-center mb-4">
+                                <h2 class="display-5 fw-bold mb-0 me-3 ${score < 84 ? " text-danger" : "text-primary-custom"}">${score.toFixed(2)}</h2>
+                            <div class="${diff >= 0 ? " text-success" : "text-danger"} fw-bold small">
+                            ${diff >= 0 ? "▲" : "▼"} ${Math.abs(diff).toFixed(2)}
+                        </div>
+                       </div>
+                       <div class="p-3 bg-light rounded-3 mb-3 border-start border-3 border-danger">
+                           <div class="text-uppercase fw-bold text-muted small mb-2" style="font-size:0.7rem; letter-spacing:1px;">Focus Areas (Lowest 3)</div>
+                           ${weakHTML}
+                       </div>
+                       <button class="btn btn-outline-primary w-100 btn-sm" onclick="showTab('stores'); document.getElementById('storeSearch').value='${item.n}'; renderStoreList();">Deep Dive</button>
                    </div>
-                   <div class="p-3 bg-light rounded-3 mb-3 border-start border-3 border-danger">
-                       <div class="text-uppercase fw-bold text-muted small mb-2" style="font-size:0.7rem; letter-spacing:1px;">Focus Areas (Lowest 3)</div>
-                       ${weakHTML}
-                   </div>
-                   <button class="btn btn-outline-primary w-100 btn-sm" onclick="showTab('stores'); document.getElementById('storeSearch').value='${item.n}'; renderStoreList();">Deep Dive</button>
-               </div>
-           </div> `;
-        cont.appendChild(col);
+               </div> `;
+            cont.appendChild(col);
+        });
+    }
+
+    // 4. Populate Region Selector and Set Default
+    const selector = document.getElementById("regionSelector");
+    if (selector) {
+        selector.innerHTML = regKeys.map(r => `<option value="${r}">${r}</option>`).join('');
+        const sortedRegs = regKeys.map(r => {
+            var d = reportData.regions[r][curWave]; return { n: r, s: d ? d.sum / d.count : 0 };
+        }).sort((a, b) => a.s - b.s);
+        const lowestRegion = sortedRegs[0];
+        selector.value = lowestRegion.n;
+        updateRegionalPriorities(lowestRegion.n);
+    }
+}
+
+function updateRegionalPriorities(regionName) {
+    const curWave = sortedWaves[sortedWaves.length - 1];
+    const regData = reportData.regions[regionName] ? reportData.regions[regionName][curWave] : null;
+    const container = document.getElementById("regPrioritiesList");
+
+    if (!container || !regData || !regData.details) return;
+
+    // Update Card Header Title
+    const header = container.closest('.card').querySelector('.card-header-clean');
+    if (header) {
+        header.innerHTML = `
+            <div class="d-flex align-items-center">
+                <div class="bg-white bg-opacity-20 p-2 rounded-2 me-3">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                </div>
+                <div>
+                    <div class="fw-bold">Priority Focus: ${regionName}</div>
+                    <div class="small opacity-75" style="font-size: 0.7rem;">Top 5 Improvement Areas for Current Wave</div>
+                </div>
+            </div>`;
+    }
+
+    let allItems = [];
+    Object.entries(regData.details).forEach(([sec, items]) => {
+        Object.values(items).forEach(item => {
+            if (item.count > 0) {
+                allItems.push({ t: item.t, score: (item.sum / item.count) });
+            }
+        });
     });
 
-    // 4. Regional Priorities (Focus on Lowest Ranked Region)
-    const lowestRegion = sortedRegs[sortedRegs.length - 1]; // sortedRegs is desc
-    const regPriContainer = document.getElementById("regPrioritiesList");
+    const topPriorities = allItems.sort((a, b) => a.score - b.score).slice(0, 5);
 
-    if (regPriContainer && lowestRegion && lowestRegion.d && lowestRegion.d.details) {
-        // Update Title to include Region Name
-        const header = regPriContainer.closest('.card').querySelector('.card-header-clean');
-        if (header) header.textContent = `⚠️ Priority Focus for ${lowestRegion.n}(Lowest Performing Region)`;
-
-        let allRegItems = [];
-        Object.entries(lowestRegion.d.details).forEach(([sec, items]) => {
-            Object.values(items).forEach(item => {
-                if (item.count > 0) {
-                    allRegItems.push({ t: item.t, score: (item.sum / item.count) });
-                }
-            });
-        });
-
-        const topRegPriorities = allRegItems.sort((a, b) => a.score - b.score).slice(0, 5);
-
-        regPriContainer.innerHTML = topRegPriorities.map((item, idx) => `
-                <div class= "col-md-6 col-lg-4" >
-                <div class="h-100 p-3 bg-white rounded shadow-sm border-start border-4 border-danger d-flex align-items-center">
-                    <div class="me-3 fw-bold text-danger fs-4 text-nowrap">#${idx + 1}</div>
-                    <div class="flex-grow-1">
-                        <div class="small fw-bold text-dark" style="line-height:1.2;">${item.t}</div>
+    container.innerHTML = topPriorities.map((item, idx) => `
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100 border-0 shadow-sm luxury-priority-card" style="border-radius: 16px; overflow: hidden; background: #fff;">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div class="priority-number">#${idx + 1}</div>
+                        <div class="priority-score-badge ${item.score * 100 < 84 ? 'bg-danger' : 'bg-warning'}">
+                            ${(item.score * 100).toFixed(0)}%
+                        </div>
                     </div>
-                    <div class="ms-2 text-end">
-                        <span class="badge bg-danger rounded-pill">${(item.score * 100).toFixed(0)}%</span>
+                    <p class="mb-0 text-dark fw-bold small" style="line-height: 1.5; min-height: 3em;">${item.t}</p>
+                    <div class="mt-3 pt-3 border-top d-flex align-items-center justify-content-between">
+                        <span class="text-muted" style="font-size: 0.65rem;">Impact Score</span>
+                        <div class="progress" style="height: 4px; width: 60px;">
+                            <div class="progress-bar ${item.score * 100 < 84 ? 'bg-danger' : 'bg-warning'}" style="width: ${item.score * 100}%"></div>
+                        </div>
                     </div>
                 </div>
             </div>
-                `).join('');
-    }
+        </div>
+    `).join('');
 }
 
 // --- Branch Strategy Module ---
