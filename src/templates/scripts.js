@@ -2056,6 +2056,25 @@ function openSectionDetail(sectionName) {
         // Top 5 Regions
         const topRegions = regionScores.sort((a, b) => b.score - a.score).slice(0, 5);
 
+        // 2.5 Get Top/Bottom Items within this section (National - Current)
+        const sectionCode = sectionName.split('.')[0].trim();
+        const itemPerformances = [];
+        const nationalCur = reportData.summary[cur];
+
+        if (nationalCur && nationalCur.details && nationalCur.details[sectionCode]) {
+            Object.entries(nationalCur.details[sectionCode]).forEach(([code, item]) => {
+                if (item.count > 0) {
+                    itemPerformances.push({
+                        text: item.t,
+                        score: (item.sum / item.count) * 100
+                    });
+                }
+            });
+        }
+        const sortedItems = [...itemPerformances].sort((a, b) => b.score - a.score);
+        const topItems = sortedItems.slice(0, 3);
+        const bottomItems = sortedItems.slice(-3).reverse();
+
         // 3. Render Modal Content
         // Ensure modal structure exists
         let modalEl = document.getElementById('sectionDetailModal');
@@ -2077,56 +2096,137 @@ function openSectionDetail(sectionName) {
             document.body.appendChild(modalEl);
         }
 
-        document.getElementById('sectionDetailTitle').textContent = `Analysis: ${sectionName} `;
+        document.getElementById('sectionDetailTitle').innerHTML = `
+            <div class="d-flex align-items-center">
+                <span class="badge bg-primary me-3" style="font-size: 0.7rem;">SECTION ANALYSIS</span>
+                <span>${sectionName}</span>
+            </div>`;
         const body = document.getElementById('sectionDetailBody');
         body.innerHTML = `
-        <div class="row g-4 d-flex" style="min-height: 450px;">
-            <!--Trend Chart-->
+        <div class="row g-4 d-flex">
+            <!-- Left: Chart & Item Insights -->
             <div class="col-lg-8 flex-column d-flex">
-                <div class="card border-0 shadow-sm flex-grow-1" style="border-radius: 12px; overflow: hidden;">
-                    <div class="card-header bg-white py-3 border-0 d-flex align-items-center">
-                        <div class="bg-primary bg-opacity-10 p-2 rounded-3 me-3">
-                            <i class="bi bi-graph-up text-primary"></i>
+                <!-- Trend Chart Card -->
+                <div class="card border-0 shadow-sm mb-4" style="border-radius: 16px; background: #fff;">
+                    <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center">
+                            <div class="bg-primary bg-opacity-10 p-2 rounded-3 me-3">
+                                <i class="bi bi-graph-up text-primary"></i>
+                            </div>
+                            <h6 class="mb-0 fw-bold text-dark">National Trend (5 Waves)</h6>
                         </div>
-                        <h6 class="mb-0 fw-bold">National Trend (5 Waves)</h6>
+                        <div class="small text-muted fst-italic">Last updated: ${cur}</div>
                     </div>
-                    <div class="card-body p-4 pt-2">
-                        <div style="height: 350px; position: relative;">
+                    <div class="card-body p-4 pt-0">
+                        <div style="height: 280px; position: relative;">
                             <canvas id="sectionTrendChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Item Insights Grid -->
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="card border-0 shadow-sm h-100" style="border-radius: 16px; border-top: 4px solid #10b981 !important;">
+                            <div class="card-body p-3">
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="bg-success bg-opacity-10 p-2 rounded-3 me-2">
+                                        <i class="bi bi-hand-thumbs-up-fill text-success"></i>
+                                    </div>
+                                    <h6 class="mb-0 fw-bold small text-uppercase" style="letter-spacing: 0.5px;">Top Strengths</h6>
+                                </div>
+                                ${topItems.map(item => `
+                                    <div class="mb-2 pb-2 border-bottom border-light last-child-no-border">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <span class="small text-dark fw-medium pe-2" style="line-height: 1.3;">${item.text}</span>
+                                            <span class="badge bg-soft-success text-success fw-bold" style="font-size: 0.7rem;">${item.score.toFixed(0)}%</span>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card border-0 shadow-sm h-100" style="border-radius: 16px; border-top: 4px solid #ef4444 !important;">
+                            <div class="card-body p-3">
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="bg-danger bg-opacity-10 p-2 rounded-3 me-2">
+                                        <i class="bi bi-exclamation-triangle-fill text-danger"></i>
+                                    </div>
+                                    <h6 class="mb-0 fw-bold small text-uppercase" style="letter-spacing: 0.5px;">Priority Improvements</h6>
+                                </div>
+                                ${bottomItems.map(item => `
+                                    <div class="mb-2 pb-2 border-bottom border-light last-child-no-border">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <span class="small text-dark fw-medium pe-2" style="line-height: 1.3;">${item.text}</span>
+                                            <span class="badge bg-soft-danger text-danger fw-bold" style="font-size: 0.7rem;">${item.score.toFixed(0)}%</span>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <!--Regional Leaderboard-->
+            <!-- Right: Regional Leaderboard -->
             <div class="col-lg-4 d-flex flex-column">
-                <div class="card border-0 shadow-sm flex-grow-1" style="border-radius: 12px; overflow: hidden;">
+                <div class="card border-0 shadow-sm flex-grow-1" style="border-radius: 16px; overflow: hidden; background: #fff;">
                     <div class="card-header bg-white py-3 border-0 d-flex align-items-center">
-                        <div class="bg-success bg-opacity-10 p-2 rounded-3 me-3">
-                            <i class="bi bi-trophy text-success"></i>
+                        <div class="bg-warning bg-opacity-10 p-2 rounded-3 me-3">
+                            <i class="bi bi-trophy-fill text-warning"></i>
                         </div>
-                        <h6 class="mb-0 fw-bold">Top Performing Regions</h6>
+                        <div>
+                            <h6 class="mb-0 fw-bold">Regional Leaderboard</h6>
+                            <small class="text-muted" style="font-size: 0.7rem;">Across 5 Regions</small>
+                        </div>
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
                             <table class="table table-hover align-middle mb-0">
-                                <thead class="table-light small text-muted text-uppercase" style="font-size: 0.65rem; letter-spacing: 0.5px;">
+                                <thead class="table-light small text-muted text-uppercase" style="font-size: 0.6rem; letter-spacing: 1px; background-color: #f8fafc;">
                                     <tr>
-                                        <th class="ps-4">Rank</th>
-                                        <th>Region Name</th>
-                                        <th class="text-end pe-4">Score</th>
+                                        <th class="ps-4 border-0">Rank</th>
+                                        <th class="border-0">Region</th>
+                                        <th class="text-end pe-4 border-0">Score</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     ${topRegions.map((r, i) => `
-                                        <tr>
-                                            <td class="ps-4"><span class="badge ${i == 0 ? 'bg-warning text-dark' : 'bg-light text-dark border'} rounded-circle" style="width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center; font-size: 0.7rem;">${i + 1}</span></td>
-                                            <td class="small fw-bold text-dark">${r.name}</td>
-                                            <td class="text-end pe-4 fw-bold ${r.score >= 84 ? 'text-success' : 'text-danger'}">${r.score.toFixed(1)}</td>
+                                        <tr style="height: 60px;">
+                                            <td class="ps-4 border-light">
+                                                <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold" 
+                                                     style="width:28px; height:28px; font-size: 0.75rem; 
+                                                     background: ${i == 0 ? '#FEF3C7' : '#F1F5F9'}; 
+                                                     color: ${i == 0 ? '#92400E' : '#475569'};">
+                                                    ${i + 1}
+                                                </div>
+                                            </td>
+                                            <td class="border-light">
+                                                <div class="fw-bold text-dark" style="font-size: 0.85rem;">${r.name}</div>
+                                                <div class="text-muted" style="font-size: 0.65rem;">Regional Performance</div>
+                                            </td>
+                                            <td class="text-end pe-4 border-light">
+                                                <div class="fw-bold ${r.score >= 84 ? 'text-success' : 'text-danger'}" style="font-size: 1rem;">${r.score.toFixed(1)}</div>
+                                                <div class="progress mt-1 ms-auto" style="height: 3px; width: 40px;">
+                                                    <div class="progress-bar ${r.score >= 84 ? 'bg-success' : 'bg-danger'}" style="width: ${r.score}%"></div>
+                                                </div>
+                                            </td>
                                         </tr>
                                     `).join('')}
                                 </tbody>
                             </table>
+                        </div>
+                        <div class="p-4 mt-auto">
+                            <div class="bg-light rounded-3 p-3">
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="bi bi-info-circle-fill text-primary me-2 fst-normal"></i>
+                                    <span class="small fw-bold text-primary">Insight</span>
+                                </div>
+                                <p class="mb-0 text-muted" style="font-size: 0.75rem; line-height: 1.4;">
+                                    ${topRegions[0].name} is leading with a score of ${topRegions[0].score.toFixed(1)}, while the gap to the next region is ${(topRegions[0].score - (topRegions[1] ? topRegions[1].score : 0)).toFixed(1)} points.
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2151,14 +2251,27 @@ function openSectionDetail(sectionName) {
                         datasets: [{
                             label: 'National Score',
                             data: trendData,
-                            borderColor: '#0d6efd',
-                            backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                            borderWidth: 3,
+                            borderColor: '#3b82f6',
+                            backgroundColor: (context) => {
+                                const chart = context.chart;
+                                const { ctx, chartArea } = chart;
+                                if (!chartArea) return null;
+                                const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+                                gradient.addColorStop(0, 'rgba(59, 130, 246, 0)');
+                                gradient.addColorStop(1, 'rgba(59, 130, 246, 0.2)');
+                                return gradient;
+                            },
+                            borderWidth: 4,
                             fill: true,
                             tension: 0.4,
                             pointBackgroundColor: '#fff',
-                            pointBorderColor: '#0d6efd',
-                            pointRadius: 5
+                            pointBorderColor: '#3b82f6',
+                            pointBorderWidth: 2,
+                            pointRadius: 6,
+                            pointHoverRadius: 8,
+                            pointHoverBackgroundColor: '#3b82f6',
+                            pointHoverBorderColor: '#fff',
+                            pointHoverBorderWidth: 2
                         }]
                     },
                     options: {
