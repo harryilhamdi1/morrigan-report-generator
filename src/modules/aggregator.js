@@ -7,6 +7,7 @@ function buildHierarchy(allStoreData, waves) {
     const latestWaveConfig = waves[waves.length - 1];
     const latestWaveKeyForCheck = `${latestWaveConfig.year} ${latestWaveConfig.name}`;
     const allQualitative = [];
+    const allFailureReasons = [];
 
     allStoreData.forEach(entry => {
         const waveKey = `${entry.year} ${entry.wave}`;
@@ -14,6 +15,23 @@ function buildHierarchy(allStoreData, waves) {
         // Collect VOC Data for Latest Wave
         if (waveKey === latestWaveKeyForCheck && entry.qualitative && entry.qualitative.length > 0) {
             allQualitative.push(...entry.qualitative);
+        }
+
+        // Collect Failure Reasons for Latest Wave (for theme aggregation)
+        if (waveKey === latestWaveKeyForCheck && entry.failedItems && entry.failedItems.length > 0) {
+            entry.failedItems.forEach(fi => {
+                if (fi.reason) {
+                    allFailureReasons.push({
+                        reason: fi.reason,
+                        section: fi.section,
+                        item: fi.item,
+                        store: entry.siteName,
+                        siteCode: entry.siteCode,
+                        region: entry.region,
+                        branch: entry.branch
+                    });
+                }
+            });
         }
 
         // Initialize Store Node
@@ -28,6 +46,7 @@ function buildHierarchy(allStoreData, waves) {
         hierarchy.stores[entry.siteCode].results[waveKey] = {
             sections: entry.sections,
             qualitative: entry.qualitative,
+            dialogue: entry.dialogue || null,
             totalScore: entry.totalScore,
             failedItems: entry.failedItems || [],
             details: entry.details || {}
@@ -76,7 +95,7 @@ function buildHierarchy(allStoreData, waves) {
         addToHierarchy(hierarchy.branches[entry.branch], entry);
     });
 
-    return { hierarchy, allQualitative };
+    return { hierarchy, allQualitative, allFailureReasons };
 }
 
 module.exports = { buildHierarchy };

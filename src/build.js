@@ -43,7 +43,7 @@ async function main() {
     // 3. Transformation & Aggregation
     console.log("   Building Hierarchy & Stats...");
     console.log(`    > Total records: ${allStoreData.length}`);
-    const { hierarchy, allQualitative } = buildHierarchy(allStoreData, WAVES);
+    const { hierarchy, allQualitative, allFailureReasons } = buildHierarchy(allStoreData, WAVES);
     console.log(`    > Hierarchy built. Stores: ${Object.keys(hierarchy.stores).length}, Regions: ${Object.keys(hierarchy.regions).length}`);
 
     // 4. Construct Final JSON Payload
@@ -61,7 +61,8 @@ async function main() {
         // but looking at scripts.js it seems to handle qualitative inside store details.
         // We might want to pass global VoC stats here if the dashboard needs it.
         // Let's stick to what the original script did or what our new templates expect.
-        voc: allQualitative
+        voc: allQualitative,
+        failureReasons: allFailureReasons
     };
 
     const jsonStr = JSON.stringify(reportData);

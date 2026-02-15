@@ -2,7 +2,7 @@ const fs = require('fs').promises;
 const { parse } = require('csv-parse/sync');
 const { SECTION_ITEMS, TARGET_SECTIONS } = require('../config/scoring');
 const { normalizeString } = require('./data_loader');
-const { analyzeFeedback } = require('./voc');
+const { analyzeFeedback, classifySingle } = require('./voc');
 
 function parseItemScore(val) {
     if (!val) return null;
@@ -61,20 +61,31 @@ async function processWave(filePath, waveName, year, masterMap) {
         const uniqueFeedback = new Set();
         feedbackCandidates.forEach(key => {
             let val = record[key];
-            // Clean up "-mi" suffix from headers if needed, but here we process values
             if (val && typeof val === 'string' && val.length > 5) {
                 val = val.trim();
                 if (!uniqueFeedback.has(val)) {
-                    // Structure matches scripts.js expectation: { text, sentiment, category }
+                    const classified = classifySingle(val);
                     storeData.qualitative.push({
                         text: val,
-                        sentiment: 'neutral', // Default since we don't have AI sentiment yet
-                        category: 'General'
+                        sentiment: classified.sentiment,
+                        category: classified.themes.length > 0 ? classified.themes[0] : 'General',
+                        themes: classified.themes
                     });
                     uniqueFeedback.add(val);
                 }
             }
         });
+
+        // --- Dialogue Extraction (Customer-RA Interaction) ---
+        const questionCol = headers.find(h => h.includes('759203') && h.includes('Cantumkan hal'));
+        const answerCol = headers.find(h => h.includes('759205') && h.includes('Cantumkan Jawaban'));
+        const memberCol = headers.find(h => h.includes('759565') && h.includes('manfaat member'));
+
+        storeData.dialogue = {
+            customerQuestion: (questionCol && record[questionCol] && record[questionCol].trim().length > 3) ? record[questionCol].trim() : null,
+            raAnswer: (answerCol && record[answerCol] && record[answerCol].trim().length > 3) ? record[answerCol].trim() : null,
+            memberBenefits: (memberCol && record[memberCol] && record[memberCol].trim().length > 3) ? record[memberCol].trim() : null
+        };
 
         // Final Score (Source of Truth)
         const finalScoreKey = Object.keys(record).find(k => k === 'Final Score' || k.trim() === 'Final Score');
@@ -111,6 +122,7 @@ async function processWave(filePath, waveName, year, masterMap) {
 
         // Item Drill-down (Failed Items & Granular Details)
         const getCol = (code) => headers.find(h => h.includes(`(${code})`) && !h.endsWith('- Text'));
+        const getTextCol = (code) => headers.find(h => h.includes(`(${code})`) && h.endsWith('- Text'));
 
         Object.entries(SECTION_ITEMS).forEach(([letter, config]) => {
             storeData.details[letter] = {}; // Init section
@@ -127,9 +139,13 @@ async function processWave(filePath, waveName, year, masterMap) {
                 // Store Granular Detail (r: result, t: text) - Optimized keys
                 storeData.details[letter][code] = { r: score, t: itemName };
 
-                // Maintain Legacy Logic for Failed Items List
+                // Capture failure reason from paired "- Text" column
                 if (score === 0) {
-                    storeData.failedItems.push({ section: letter, code: code, item: itemName });
+                    const textCol = getTextCol(code);
+                    const reason = (textCol && record[textCol] && record[textCol].trim().length > 3)
+                        ? record[textCol].trim() : null;
+                    if (reason) storeData.details[letter][code].reason = reason;
+                    storeData.failedItems.push({ section: letter, code: code, item: itemName, reason: reason });
                 }
             });
         });

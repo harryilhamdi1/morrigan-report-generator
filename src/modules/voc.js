@@ -131,4 +131,32 @@ function analyzeFeedback(qualitativeList) {
     };
 }
 
-module.exports = { analyzeFeedback };
+// Classify a single text string for sentiment and primary theme
+function classifySingle(text) {
+    if (!text || typeof text !== 'string') return { sentiment: 'neutral', themes: [] };
+    const tokens = tokenize(text);
+    let score = 0;
+    const detectedThemes = new Set();
+
+    const themes = {
+        'Service': ['pelayanan', 'karyawan', 'staff', 'kasir', 'sopan', 'ramah', 'judes', 'senyum', 'salam', 'retail', 'assistant'],
+        'Product': ['produk', 'barang', 'stok', 'ukuran', 'size', 'warna', 'model', 'kualitas', 'bahan'],
+        'Ambience': ['suasana', 'tempat', 'dingin', 'panas', 'musik', 'lagu', 'bersih', 'kotor', 'rapi', 'toilet', 'fitting'],
+        'Process': ['antri', 'bayar', 'transaksi', 'kasir', 'lama', 'cepat', 'ribet', 'mudah', 'member', 'struk']
+    };
+
+    tokens.forEach(word => {
+        if (POSITIVE_WORDS.has(word)) score++;
+        else if (NEGATIVE_WORDS.has(word)) score--;
+        for (const [theme, keywords] of Object.entries(themes)) {
+            if (keywords.some(k => word.includes(k))) detectedThemes.add(theme);
+        }
+    });
+
+    return {
+        sentiment: score > 0 ? 'positive' : (score < 0 ? 'negative' : 'neutral'),
+        themes: Array.from(detectedThemes)
+    };
+}
+
+module.exports = { analyzeFeedback, classifySingle };

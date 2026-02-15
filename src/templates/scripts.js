@@ -1639,18 +1639,149 @@ function loadStoreDetail(idOverride) {
     // 5. Render Performance Insights (New)
     renderPerformanceInsights(insightData);
 
-    // 6. Qualitative Feedback
+    // 6. Qualitative Feedback (Upgraded with Sentiment & Themes)
     var fbList = document.getElementById("stFeedback"); fbList.innerHTML = "";
+    window._currentFeedbackData = []; // Store for filtering
+
     if (cur.qualitative && cur.qualitative.length > 0) {
+        let posCount = 0, negCount = 0, neuCount = 0;
+        window._currentFeedbackData = cur.qualitative;
+
         cur.qualitative.forEach(q => {
-            var badge = q.sentiment === 'positive' ? '<span class="badge bg-success">POS</span>' : (q.sentiment === 'negative' ? '<span class="badge bg-danger">NEG</span>' : '<span class="badge bg-secondary">NEU</span>');
-            fbList.innerHTML += `<div class="p-3 bg-white rounded shadow-sm border-start border-4 ${q.sentiment === 'negative' ? 'border-danger' : 'border-success'}" >
-                <div class="d-flex justify-content-between mb-1"><span class="fw-bold small text-uppercase text-muted">${q.category}</span>${badge}</div>
-                <p class="mb-0 small text-dark">"${q.text}"</p>
-            </div> `;
+            if (q.sentiment === 'positive') posCount++;
+            else if (q.sentiment === 'negative') negCount++;
+            else neuCount++;
         });
+
+        const total = cur.qualitative.length;
+        document.getElementById('stFeedbackCount').textContent = total;
+        document.getElementById('stSentPosCount').textContent = posCount;
+        document.getElementById('stSentNeuCount').textContent = neuCount;
+        document.getElementById('stSentNegCount').textContent = negCount;
+
+        // Sentiment bar widths
+        document.getElementById('stSentBarPos').style.width = (posCount / total * 100) + '%';
+        document.getElementById('stSentBarNeu').style.width = (neuCount / total * 100) + '%';
+        document.getElementById('stSentBarNeg').style.width = (negCount / total * 100) + '%';
+
+        renderFeedbackCards(cur.qualitative);
     } else {
+        document.getElementById('stFeedbackCount').textContent = '0';
+        document.getElementById('stSentPosCount').textContent = '0';
+        document.getElementById('stSentNeuCount').textContent = '0';
+        document.getElementById('stSentNegCount').textContent = '0';
+        document.getElementById('stSentBarPos').style.width = '0%';
+        document.getElementById('stSentBarNeu').style.width = '0%';
+        document.getElementById('stSentBarNeg').style.width = '0%';
         fbList.innerHTML = "<div class='text-center text-muted py-4 small'>No feedback recorded</div>";
+    }
+
+    // 7. Customer Interaction Replay (Dialogue)
+    var dialogueSection = document.getElementById('stDialogueSection');
+    var dialogueContent = document.getElementById('stDialogueContent');
+    if (dialogueContent) dialogueContent.innerHTML = '';
+
+    if (cur.dialogue && (cur.dialogue.customerQuestion || cur.dialogue.raAnswer)) {
+        dialogueSection.style.display = 'block';
+
+        if (cur.dialogue.customerQuestion) {
+            dialogueContent.innerHTML += `
+                <div class="d-flex gap-3 align-items-start">
+                    <div class="rounded-circle flex-shrink-0 d-flex align-items-center justify-content-center"
+                        style="width: 36px; height: 36px; background: linear-gradient(135deg, #6366F1, #8B5CF6); font-size: 0.85rem; color: white;">🧑</div>
+                    <div class="flex-grow-1">
+                        <small class="fw-bold text-muted d-block mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">CUSTOMER</small>
+                        <div class="p-3 rounded-3" style="background: #F1F5F9; border-radius: 4px 16px 16px 16px !important; font-size: 0.9rem; color: #334155; line-height: 1.5;">
+                            "${cur.dialogue.customerQuestion}"
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        if (cur.dialogue.raAnswer) {
+            dialogueContent.innerHTML += `
+                <div class="d-flex gap-3 align-items-start flex-row-reverse">
+                    <div class="rounded-circle flex-shrink-0 d-flex align-items-center justify-content-center"
+                        style="width: 36px; height: 36px; background: linear-gradient(135deg, #10B981, #059669); font-size: 0.85rem; color: white;">👤</div>
+                    <div class="flex-grow-1 text-end">
+                        <small class="fw-bold text-muted d-block mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">RETAIL ASSISTANT</small>
+                        <div class="p-3 rounded-3 text-start" style="background: linear-gradient(135deg, #ECFDF5, #D1FAE5); border-radius: 16px 4px 16px 16px !important; font-size: 0.9rem; color: #065F46; line-height: 1.5;">
+                            "${cur.dialogue.raAnswer}"
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        if (cur.dialogue.memberBenefits) {
+            dialogueContent.innerHTML += `
+                <div class="card border-0 mt-2" style="background: linear-gradient(135deg, #EFF6FF, #DBEAFE); border-radius: 12px !important;">
+                    <div class="card-body p-3">
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="bi bi-award-fill me-2" style="color: #2563EB;"></i>
+                            <small class="fw-bold" style="color: #1E40AF; font-size: 0.75rem; letter-spacing: 0.5px;">MEMBER BENEFITS EXPLAINED</small>
+                        </div>
+                        <p class="mb-0" style="font-size: 0.85rem; color: #1E3A5F; line-height: 1.5;">${cur.dialogue.memberBenefits}</p>
+                    </div>
+                </div>`;
+        }
+    } else {
+        if (dialogueSection) dialogueSection.style.display = 'none';
+    }
+}
+
+// --- QUALITATIVE FEEDBACK HELPERS ---
+
+function renderFeedbackCards(feedbackList) {
+    var fbList = document.getElementById("stFeedback");
+    fbList.innerHTML = "";
+
+    feedbackList.forEach(q => {
+        const sentimentConfig = {
+            positive: { icon: '🟢', label: 'Positive', border: '#10B981', bg: 'rgba(16,185,129,0.06)' },
+            negative: { icon: '🔴', label: 'Negative', border: '#EF4444', bg: 'rgba(239,68,68,0.06)' },
+            neutral: { icon: '⚪', label: 'Neutral', border: '#94A3B8', bg: 'rgba(148,163,184,0.06)' }
+        };
+        const sc = sentimentConfig[q.sentiment] || sentimentConfig.neutral;
+
+        // Theme pills
+        const themePills = (q.themes && q.themes.length > 0)
+            ? q.themes.map(t => {
+                const themeColors = {
+                    'Service': '#6366F1', 'Product': '#F59E0B',
+                    'Ambience': '#10B981', 'Process': '#3B82F6'
+                };
+                return `<span class="badge rounded-pill me-1" style="background: ${themeColors[t] || '#94A3B8'}20; color: ${themeColors[t] || '#94A3B8'}; font-size: 0.6rem; font-weight: 600;">${t}</span>`;
+            }).join('')
+            : `<span class="badge rounded-pill" style="background: #F1F5F9; color: #94A3B8; font-size: 0.6rem;">General</span>`;
+
+        fbList.innerHTML += `<div class="p-3 rounded-3 shadow-sm" data-sentiment="${q.sentiment}" style="background: ${sc.bg}; border-left: 3px solid ${sc.border}; transition: all 0.3s ease;">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div>${themePills}</div>
+                <span style="font-size: 0.65rem; font-weight: 600; color: ${sc.border};">${sc.icon} ${sc.label}</span>
+            </div>
+            <p class="mb-0 small text-dark" style="line-height: 1.5; font-size: 0.82rem;">"${q.text}"</p>
+        </div>`;
+    });
+}
+
+function filterFeedback(filter, btn) {
+    // Update button states
+    const group = btn.parentElement;
+    group.querySelectorAll('.btn').forEach(b => {
+        b.style.background = '#F1F5F9';
+        b.style.color = '#64748B';
+        b.classList.remove('active');
+    });
+    btn.style.background = '#1E293B';
+    btn.style.color = 'white';
+    btn.classList.add('active');
+
+    // Filter and re-render
+    const data = window._currentFeedbackData || [];
+    if (filter === 'all') {
+        renderFeedbackCards(data);
+    } else {
+        renderFeedbackCards(data.filter(q => q.sentiment === filter));
     }
 }
 
@@ -1982,6 +2113,7 @@ function showFailureDetails(section, failedItems, fixedItems) {
                     ${isRecurring ? '<span class="badge bg-warning text-dark"><i class="bi bi-arrow-repeat me-1"></i>Recurring</span>' : '<span class="badge bg-danger">Failed</span>'}
                 </div>
                 <p class="mb-2 text-dark fw-medium" style="font-size: 0.95rem;">"${text}"</p>
+                ${item.reason ? `<div class="mb-2 ps-3" style="border-left: 3px solid #EF4444; font-style: italic; color: #6B7280; font-size: 0.85rem;"><i class="bi bi-chat-square-quote me-1 text-danger"></i>${item.reason}</div>` : ''}
                 ${renderHistoryDots(history)}
                 ${benchmarkHtml}
             </div>
@@ -2017,11 +2149,126 @@ function showFailureDetails(section, failedItems, fixedItems) {
 }
 
 
+// --- VoC Tab Initialization ---
+function initVoC() {
+    try {
+        const voc = reportData.voc || [];
+        const failureReasons = reportData.failureReasons || [];
+
+        // --- Sentiment Stats ---
+        let posCount = 0, negCount = 0, neuCount = 0;
+        const wordFreq = {};
+        const themeData = {
+            'Service': { count: 0, sentiment: 0 },
+            'Product': { count: 0, sentiment: 0 },
+            'Ambience': { count: 0, sentiment: 0 },
+            'Process': { count: 0, sentiment: 0 }
+        };
+
+        voc.forEach(v => {
+            if (v.sentiment === 'positive') posCount++;
+            else if (v.sentiment === 'negative') negCount++;
+            else neuCount++;
+
+            // Theme counts
+            if (v.themes) {
+                v.themes.forEach(t => {
+                    if (themeData[t]) {
+                        themeData[t].count++;
+                        themeData[t].sentiment += (v.sentiment === 'positive' ? 1 : (v.sentiment === 'negative' ? -1 : 0));
+                    }
+                });
+            }
+
+            // Word frequency
+            if (v.text) {
+                v.text.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).forEach(w => {
+                    if (w.length > 3) wordFreq[w] = (wordFreq[w] || 0) + 1;
+                });
+            }
+        });
+
+        // Render stats
+        const vocTotalEl = document.getElementById('vocTotal');
+        const vocPosEl = document.getElementById('vocPositive');
+        const vocNegEl = document.getElementById('vocNegative');
+        const vocNeuEl = document.getElementById('vocNeutral');
+        if (vocTotalEl) vocTotalEl.textContent = voc.length;
+        if (vocPosEl) vocPosEl.textContent = posCount;
+        if (vocNegEl) vocNegEl.textContent = negCount;
+        if (vocNeuEl) vocNeuEl.textContent = neuCount;
+
+        // --- Word Cloud ---
+        const cloudEl = document.getElementById('vocWordCloud');
+        if (cloudEl) {
+            const sorted = Object.entries(wordFreq).sort((a, b) => b[1] - a[1]).slice(0, 40);
+            const maxFreq = sorted.length > 0 ? sorted[0][1] : 1;
+            cloudEl.innerHTML = sorted.map(([word, count]) => {
+                const size = Math.max(0.7, (count / maxFreq) * 2.2);
+                const colors = ['#3B82F6', '#6366F1', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#EC4899'];
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                return `<span style="font-size: ${size}rem; color: ${color}; padding: 3px 8px; display: inline-block; font-weight: ${count > 3 ? '700' : '500'}; opacity: ${0.6 + (count / maxFreq) * 0.4};" title="${count} mentions">${word}</span>`;
+            }).join('');
+        }
+
+        // --- Theme Table ---
+        const themeEl = document.getElementById('vocThemes');
+        if (themeEl) {
+            themeEl.innerHTML = Object.entries(themeData)
+                .sort((a, b) => b[1].count - a[1].count)
+                .map(([name, data]) => {
+                    const sentLabel = data.sentiment > 0 ? '<span class="text-success">Positive</span>' : (data.sentiment < 0 ? '<span class="text-danger">Negative</span>' : '<span class="text-secondary">Neutral</span>');
+                    return `<tr><td class="fw-bold">${name}</td><td class="text-end">${data.count}</td><td class="text-end">${sentLabel}</td></tr>`;
+                }).join('');
+        }
+
+        // --- Failure Pattern Analysis ---
+        const patternEl = document.getElementById('vocFailurePatterns');
+        if (patternEl && failureReasons.length > 0) {
+            // Group by section and count reasons
+            const reasonCounts = {};
+            failureReasons.forEach(fr => {
+                const key = fr.reason.substring(0, 120);
+                if (!reasonCounts[key]) reasonCounts[key] = { count: 0, section: fr.section, stores: new Set() };
+                reasonCounts[key].count++;
+                reasonCounts[key].stores.add(fr.siteCode);
+            });
+
+            const sorted = Object.entries(reasonCounts).sort((a, b) => b[1].count - a[1].count).slice(0, 25);
+            const sectionColors = {
+                'A': '#6366F1', 'B': '#10B981', 'C': '#F59E0B', 'D': '#3B82F6',
+                'E': '#EC4899', 'F': '#8B5CF6', 'G': '#14B8A6', 'H': '#F97316',
+                'I': '#06B6D4', 'J': '#EF4444', 'K': '#84CC16'
+            };
+
+            patternEl.innerHTML = sorted.map(([reason, data]) => {
+                const color = sectionColors[data.section] || '#94A3B8';
+                const storeCount = data.stores.size;
+                return `<div class="d-inline-flex align-items-center gap-2 px-3 py-2 rounded-pill shadow-sm" 
+                    style="background: ${color}10; border: 1px solid ${color}30; cursor: default; transition: all 0.2s ease;"
+                    onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px ${color}20'"
+                    onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'"
+                    title="Section ${data.section} | Found in ${storeCount} store(s)">
+                    <span class="badge rounded-circle d-flex align-items-center justify-content-center" 
+                        style="width: 22px; height: 22px; background: ${color}; font-size: 0.6rem; color: white;">${data.section}</span>
+                    <span class="small fw-medium text-dark" style="font-size: 0.78rem; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${reason}</span>
+                    <span class="badge rounded-pill" style="background: ${color}; font-size: 0.6rem; color: white;">${data.count}×</span>
+                </div>`;
+            }).join('');
+        } else if (patternEl) {
+            patternEl.innerHTML = '<div class="text-muted small py-3">No failure patterns detected in the latest wave.</div>';
+        }
+    } catch (err) {
+        console.error('VoC init error:', err);
+    }
+}
+
 window.onload = function () {
     initSummary();
     initRegions();
     initBranches();
     initStoreTable();
+    initVoC();
 
     // Deep Link Logic
     var urlParams = new URLSearchParams(window.location.search);
