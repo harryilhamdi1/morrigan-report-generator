@@ -122,7 +122,7 @@ async function processWave(filePath, waveName, year, masterMap) {
                 const score = parseItemScore(val);
 
                 // Capture Item Name (Cleaned) - Remove (Code) prefix and trim
-                const itemName = col.replace(/^\(\d+\)\s*/, '').trim().substring(0, 100);
+                const itemName = col.replace(/^\(\d+\)\s*/, '').trim();
 
                 // Store Granular Detail (r: result, t: text) - Optimized keys
                 storeData.details[letter][code] = { r: score, t: itemName };

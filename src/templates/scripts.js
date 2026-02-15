@@ -9,11 +9,11 @@ function initSummary() {
     var diff = s - pS;
     document.getElementById("kpi-score").textContent = s.toFixed(2);
     document.getElementById("kpi-score-trend").innerHTML = (diff >= 0 ? "▲ +" : "▼ ") + Math.abs(diff).toFixed(2) + " vs last wave";
-    document.getElementById("kpi-score-trend").className="kpi-trend " + (diff >= 0 ? "text-success" : "text-danger");
+    document.getElementById("kpi-score-trend").className = "kpi-trend " + (diff >= 0 ? "text-success" : "text-danger");
     document.getElementById("kpi-stores").textContent = dat.count;
 
     // Best Region
-    var bestR="", bestS = -1;
+    var bestR = "", bestS = -1;
     Object.keys(reportData.regions).forEach(r => {
         var d = reportData.regions[r][cur];
         if (d && d.sum / d.count > bestS) { bestS = d.sum / d.count; bestR = r; }
@@ -25,7 +25,7 @@ function initSummary() {
     Object.values(reportData.stores).forEach(st => {
         if (st.results[cur]) {
             Object.values(st.results[cur].sections).forEach(v => {
-                if (v <reportData.threshold) totActions++;
+                if (v < reportData.threshold) totActions++;
             });
         }
     });
@@ -34,7 +34,7 @@ function initSummary() {
     // 3. Chart with Deltas
     var scores = w.map(k => reportData.summary[k].sum / reportData.summary[k].count);
     var ann = [];
-    for (var i = 1; i <w.length; i++) {
+    for (var i = 1; i < w.length; i++) {
         var p = scores[i - 1], c = scores[i];
         if (!isNaN(p) && !isNaN(c)) {
             var d = c - p;
@@ -74,7 +74,7 @@ function initSummary() {
 
     // 4. Section Analysis (Clickable - Sexy Tiles)
     var grid = document.getElementById("sectionAnalysisGrid");
-    grid.innerHTML="";
+    grid.innerHTML = "";
     var iconMap = {
         "A.": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
         "B.": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
@@ -117,7 +117,7 @@ function initSummary() {
         .sort((a, b) => b.s - a.s);
 
     var renderT = (l, id, top) => {
-        var h="";
+        var h = "";
         l.forEach((x, i) => {
             var r = top ? i + 1 : sList.length - i;
             var cls = top ? (i < 3 ? "rank-top-" + (i + 1) : "") : "";
@@ -137,7 +137,7 @@ function initSummary() {
     }).sort((a, b) => b.s - a.s);
 
     var renderH = (l, id) => {
-        var h="";
+        var h = "";
         l.slice(0, 5).forEach((x, i) => {
             var cls = i < 3 ? "rank-top-" + (i + 1) : "";
             h += `<tr ><td style="padding-left:20px"><span class="rank-badge ${cls}">${i + 1}</span></td><td>${x.n}</td><td class="text-end fw-bold" style="padding-right:20px">${x.s.toFixed(2)}</td></tr> `;
@@ -216,7 +216,7 @@ function initRegions() {
     var container = document.getElementById("regionSectionHeatmap").parentElement;
     container.querySelectorAll(".hm-legend-custom").forEach(e => e.remove());
     var topLeg = document.createElement("div");
-    topLeg.className="hm-legend-custom";
+    topLeg.className = "hm-legend-custom";
     topLeg.innerHTML = legendHTML;
     container.insertBefore(topLeg, document.getElementById("regionSectionHeatmap"));
 
@@ -275,7 +275,7 @@ function initRegions() {
         document.getElementById("hmModalTitle").textContent = r;
         document.getElementById("hmModalSubtitle").textContent = fullSec;
         var scEl = document.getElementById("hmScore"); scEl.textContent = score.toFixed(2);
-        scEl.className="display-3 fw-bold mb-2 " + (score < 84 ? "text-danger" : "text-primary-custom");
+        scEl.className = "display-3 fw-bold mb-2 " + (score < 84 ? "text-danger" : "text-primary-custom");
         document.getElementById("hmBadge").innerHTML = score < 84 ? `<span class="badge bg-danger px-3 py-2 rounded-pill" > CRITICAL</span> ` : (score < 90 ? ` <span class="badge bg-warning text-dark px-3 py-2 rounded-pill" > WARNING</span> ` : ` <span class="badge bg-success px-3 py-2 rounded-pill" > GOOD</span> `);
         document.getElementById("hmVsNat").innerHTML = (diff >= 0 ? `<span class="text-success" >▲ +` : ` <span class="text-danger" >▼ `) + diff.toFixed(2) + "</span>";
         document.getElementById("hmAction").textContent = reportData.actionPlanConfig[fullSec] || "Review operational standards and compliance.";
@@ -305,7 +305,7 @@ function initRegions() {
 
     // 3. Leaderboard
     var cont = document.getElementById("regionDetailCards");
-    cont.innerHTML="";
+    cont.innerHTML = "";
     var sortedRegs = regKeys.map(r => {
         var d = reportData.regions[r][curWave]; return { n: r, s: d ? d.sum / d.count : 0, d: d };
     }).sort((a, b) => b.s - a.s);
@@ -323,7 +323,7 @@ function initRegions() {
         var rankBadge = idx < 3 ? `<span class="rank-badge rank-top-${idx + 1} shadow-sm" style="width:32px;height:32px;font-size:1rem;" > ${idx + 1}</span> ` : ` <span class="badge bg-light text-dark border" > #${idx + 1}</span> `;
 
         var col = document.createElement("div");
-        col.className="col-lg-4 col-md-6";
+        col.className = "col-lg-4 col-md-6";
         col.innerHTML = `
                 <div class="card h-100 shadow-hover border-0" style="transition: transform 0.2s;" >
                     <div class="card-body p-4 position-relative">
@@ -371,7 +371,7 @@ function initRegions() {
                 <div class="h-100 p-3 bg-white rounded shadow-sm border-start border-4 border-danger d-flex align-items-center">
                     <div class="me-3 fw-bold text-danger fs-4 text-nowrap">#${idx + 1}</div>
                     <div class="flex-grow-1">
-                        <div class="small fw-bold text-dark" style="line-height:1.2; max-height: 4.8em; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;">${item.t}</div>
+                        <div class="small fw-bold text-dark" style="line-height:1.2;">${item.t}</div>
                     </div>
                     <div class="ms-2 text-end">
                         <span class="badge bg-danger rounded-pill">${(item.score * 100).toFixed(0)}%</span>
@@ -444,7 +444,7 @@ function initBranches() {
                 <div class="h-100 p-3 bg-white rounded shadow-sm border-start border-4 border-danger d-flex align-items-center">
                     <div class="me-3 fw-bold text-danger fs-4 text-nowrap">#${idx + 1}</div>
                     <div class="flex-grow-1">
-                        <div class="small fw-bold text-dark" style="line-height:1.2; max-height: 4.8em; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;">${item.t}</div>
+                        <div class="small fw-bold text-dark" style="line-height:1.2;">${item.t}</div>
                     </div>
                     <div class="ms-2 text-end">
                         <span class="badge bg-danger rounded-pill">${(item.score * 100).toFixed(0)}%</span>
@@ -692,7 +692,7 @@ function renderBranchMatrixChart(brData) {
         { type: 'rect', x0: 50, y0: -20, x1: 84, y1: 0, fillcolor: '#FEF2F2', opacity: 0.4, line: { width: 0 }, layer: 'below' }  // Critical
     ];
 
-    var divId="branchMatrixChart";
+    var divId = "branchMatrixChart";
     var chart = document.getElementById(divId);
 
     Plotly.newPlot(divId, [{
@@ -777,7 +777,7 @@ function renderBranchScaleChart(brData) {
     });
     var worstPerformers = labels.map(k => {
         if (groups[k].names.length === 0) return "N/A";
-        var worst = groups[k].names.reduce((prev, curr) => (prev.s <curr.s) ? prev : curr);
+        var worst = groups[k].names.reduce((prev, curr) => (prev.s < curr.s) ? prev : curr);
         return `${worst.n} (${worst.s.toFixed(1)})`;
     });
 
@@ -948,7 +948,7 @@ function showCulpritModal(branchName, sectionName = null) {
 
 function renderCulpritList() {
     var container = document.getElementById("culpritList");
-    container.innerHTML="";
+    container.innerHTML = "";
 
     var start = (currentCulpritPage - 1) * CULPRIT_PAGE_SIZE;
     var end = start + CULPRIT_PAGE_SIZE;
@@ -979,9 +979,9 @@ function renderCulpritList() {
 
         // Make clickable link
         var item = document.createElement("a");
-        item.href="?store=" + s.c;
-        item.target="_blank";
-        item.className="list-group-item list-group-item-action p-3 border-light hover-bg-light text-decoration-none";
+        item.href = "?store=" + s.c;
+        item.target = "_blank";
+        item.className = "list-group-item list-group-item-action p-3 border-light hover-bg-light text-decoration-none";
 
         var badgeColor = displayScore < 70 ? 'bg-danger' : (displayScore < 84 ? 'bg-warning text-dark' : 'bg-success');
 
@@ -1018,7 +1018,7 @@ function renderCulpritList() {
 
 function renderBranchCards(data, waves) {
     var cont = document.getElementById("branchContainer");
-    cont.innerHTML="";
+    cont.innerHTML = "";
 
     // Sort by Score Descending
     var viewData = [...data].sort((a, b) => b.s - a.s);
@@ -1048,7 +1048,7 @@ function renderBranchCards(data, waves) {
             </div> `).join("");
 
         // Critical Stores Button (Moved to Middle Column)
-        var criticalBtnHTML="";
+        var criticalBtnHTML = "";
         if (criticalCount > 0) {
             criticalBtnHTML = `
         <div class="mt-3 text-center" >
@@ -1093,7 +1093,7 @@ function renderBranchCards(data, waves) {
         }).join("");
 
         var col = document.createElement("div");
-        col.className="col-12 branch-card-item";
+        col.className = "col-12 branch-card-item";
         col.dataset.name = d.n.toLowerCase();
 
         col.innerHTML = `
@@ -1178,7 +1178,7 @@ function initStoreTable() {
 function updateBranchFilter() {
     var reg = document.getElementById("storeListRegion").value;
     var brSel = document.getElementById("storeListBranch");
-    brSel.innerHTML="<option value=''>All Branches</option>";
+    brSel.innerHTML = "<option value=''>All Branches</option>";
     brSel.disabled = !reg;
 
     if (reg) {
@@ -1193,8 +1193,8 @@ function updateBranchFilter() {
 }
 
 function resetStoreFilters() {
-    document.getElementById("storeListSearch").value="";
-    document.getElementById("storeListRegion").value="";
+    document.getElementById("storeListSearch").value = "";
+    document.getElementById("storeListRegion").value = "";
     updateBranchFilter();
     renderStoreTable();
 }
@@ -1232,7 +1232,7 @@ function renderStoreTable() {
     var pageData = list.slice(start, end);
 
     var tbody = document.getElementById("storeMasterBody");
-    tbody.innerHTML="";
+    tbody.innerHTML = "";
 
     pageData.forEach((s, idx) => {
         var rank = start + idx + 1;
@@ -1240,7 +1240,7 @@ function renderStoreTable() {
         var score = d ? d.totalScore : 0;
 
         // Luxury Badge Logic
-        var scoreBadge="";
+        var scoreBadge = "";
         if (score < 84) scoreBadge = `<span class="badge bg-danger rounded-pill px-3" > ${score.toFixed(2)}</span> `;
         else if (score >= 95) scoreBadge = `<span class="badge bg-success rounded-pill px-3" > ${score.toFixed(2)}</span> `;
         else scoreBadge = `<span class="fw-bold text-dark" > ${score.toFixed(2)}</span> `;
@@ -1276,8 +1276,8 @@ function viewStore(id) {
     if (typeof showTab === 'function') showTab('stores');
 
     // Switch Views
-    document.getElementById("storeListContainer").style.display="none";
-    document.getElementById("storeContent").style.display="block";
+    document.getElementById("storeListContainer").style.display = "none";
+    document.getElementById("storeContent").style.display = "block";
 
     // Set Global State
     window.currentStoreId = id;
@@ -1291,8 +1291,8 @@ function viewStore(id) {
 }
 
 function showStoreList() {
-    document.getElementById("storeContent").style.display="none";
-    document.getElementById("storeListContainer").style.display="block";
+    document.getElementById("storeContent").style.display = "none";
+    document.getElementById("storeListContainer").style.display = "block";
 }
 
 
@@ -1376,7 +1376,7 @@ function loadStoreDetail(idOverride) {
 
     var stScore = cur.totalScore;
     document.getElementById("stScore").textContent = stScore.toFixed(2);
-    document.getElementById("stScore").className="display-3 fw-bold " + (stScore < 84 ? "text-danger" : "text-white");
+    document.getElementById("stScore").className = "display-3 fw-bold " + (stScore < 84 ? "text-danger" : "text-white");
 
     // Calculate Rank
     var allStores = Object.values(reportData.stores);
@@ -1386,11 +1386,11 @@ function loadStoreDetail(idOverride) {
         return sb - sa;
     });
     var rank = allStores.findIndex(x => x.meta.code === c) + 1;
-    document.getElementById("stRankBadge").textContent="Rank #" + rank;
+    document.getElementById("stRankBadge").textContent = "Rank #" + rank;
 
     // Calculate Momentum (YoY / Wave-over-Wave)
     var prevWaveKey = sortedWaves[sortedWaves.length - 2];
-    var momHTML="";
+    var momHTML = "";
     if (prevWaveKey && s.results[prevWaveKey]) {
         var prevScore = s.results[prevWaveKey].totalScore;
         var diff = stScore - prevScore;
@@ -1468,17 +1468,17 @@ function loadStoreDetail(idOverride) {
     var brData = reportData.branches[s.meta.branch][currentWaveKey];
 
     var compVals = [];
-    var compName="";
-    var compColor="";
+    var compName = "";
+    var compColor = "";
 
     if (radarMode === 'region') {
         compVals = secKeys.map(k => regData && regData.sections[k] ? regData.sections[k].sum / regData.sections[k].count : 0);
-        compName="Region Avg";
-        compColor="#9CA3AF";
+        compName = "Region Avg";
+        compColor = "#9CA3AF";
     } else {
         compVals = secKeys.map(k => brData && brData.sections[k] ? brData.sections[k].sum / brData.sections[k].count : 0);
-        compName="Branch Avg";
-        compColor="#F59E0B";
+        compName = "Branch Avg";
+        compColor = "#F59E0B";
     }
     var rComp = [...compVals, compVals[0]];
 
@@ -1506,7 +1506,7 @@ function loadStoreDetail(idOverride) {
 
     // 4. Section Table with Sparklines
     var tb = document.querySelector("#stSectionTable tbody");
-    tb.innerHTML="";
+    tb.innerHTML = "";
 
     // Data for Insights
     const insightData = [];
@@ -1595,7 +1595,7 @@ function loadStoreDetail(idOverride) {
     renderPerformanceInsights(insightData);
 
     // 6. Qualitative Feedback
-    var fbList = document.getElementById("stFeedback"); fbList.innerHTML="";
+    var fbList = document.getElementById("stFeedback"); fbList.innerHTML = "";
     if (cur.qualitative && cur.qualitative.length > 0) {
         cur.qualitative.forEach(q => {
             var badge = q.sentiment === 'positive' ? '<span class="badge bg-success">POS</span>' : (q.sentiment === 'negative' ? '<span class="badge bg-danger">NEG</span>' : '<span class="badge bg-secondary">NEU</span>');
@@ -1605,7 +1605,7 @@ function loadStoreDetail(idOverride) {
             </div> `;
         });
     } else {
-        fbList.innerHTML="<div class='text-center text-muted py-4 small'>No feedback recorded</div>";
+        fbList.innerHTML = "<div class='text-center text-muted py-4 small'>No feedback recorded</div>";
     }
 }
 
@@ -1621,8 +1621,8 @@ function toggleBattleMode(isActive) {
             return;
         }
 
-        stdMode.style.display="none";
-        battleMode.style.display="block";
+        stdMode.style.display = "none";
+        battleMode.style.display = "block";
 
         // Initialize Opponent Selector if empty
         const oppSelect = document.getElementById("battleOpponentSelect");
@@ -1636,11 +1636,11 @@ function toggleBattleMode(isActive) {
         const res = s.results[curWave];
 
         document.getElementById("battleP1Name").textContent = s.meta.name;
-        document.getElementById("battleP1Score").textContent="Score: " + (res ? res.totalScore.toFixed(2) : "N/A");
+        document.getElementById("battleP1Score").textContent = "Score: " + (res ? res.totalScore.toFixed(2) : "N/A");
 
     } else {
-        stdMode.style.display="flex"; // Restore flex layout
-        battleMode.style.display="none";
+        stdMode.style.display = "flex"; // Restore flex layout
+        battleMode.style.display = "none";
     }
 }
 
@@ -1822,7 +1822,7 @@ function renderPerformanceInsights(data) {
     // Sort by Score Ascending (Worst first)
     const worstSections = [...data].sort((a, b) => a.score - b.score);
     const impList = document.getElementById("stImprovementList");
-    impList.innerHTML="";
+    impList.innerHTML = "";
 
     worstSections.forEach((item, index) => {
         const isTop3 = index < 3;
@@ -1860,7 +1860,7 @@ function renderPerformanceInsights(data) {
 function showFailureDetails(section, failedItems, fixedItems) {
     document.getElementById("failureModalTitle").textContent = section;
     const body = document.getElementById("failureModalBody");
-    body.innerHTML="";
+    body.innerHTML = "";
 
     // Helper to render history dots
     const renderHistoryDots = (history) => {
@@ -2025,39 +2025,41 @@ function openChartModal(sourceId, title) {
 
 // --- Section Detail Modal Logic ---
 function openSectionDetail(sectionName) {
-    // 1. Get Trend Data (National)
-    const trendLabels = [];
-    const trendData = [];
+    console.log("Opening section detail for:", sectionName);
+    try {
+        // 1. Get Trend Data (National)
+        const trendLabels = [];
+        const trendData = [];
 
-    sortedWaves.forEach(wave => {
-        const d = reportData.summary[wave];
-        if (d && d.sections[sectionName]) {
-            trendLabels.push(wave);
-            trendData.push(d.sections[sectionName]);
-        }
-    });
+        sortedWaves.forEach(wave => {
+            const d = reportData.summary[wave];
+            if (d && d.sections[sectionName]) {
+                trendLabels.push(wave);
+                trendData.push(d.sections[sectionName]);
+            }
+        });
 
-    // 2. Get Regional Leaderboard (Current Wave)
-    const cur = sortedWaves[sortedWaves.length - 1];
-    const regionScores = [];
-    Object.keys(reportData.regions).forEach(reg => {
-        const rData = reportData.regions[reg][cur];
-        if (rData && rData.sections[sectionName]) {
-            regionScores.push({ name: reg, score: rData.sections[sectionName] });
-        }
-    });
-    // Top 5 Regions
-    const topRegions = regionScores.sort((a, b) => b.score - a.score).slice(0, 5);
+        // 2. Get Regional Leaderboard (Current Wave)
+        const cur = sortedWaves[sortedWaves.length - 1];
+        const regionScores = [];
+        Object.keys(reportData.regions).forEach(reg => {
+            const rData = reportData.regions[reg][cur];
+            if (rData && rData.sections[sectionName]) {
+                regionScores.push({ name: reg, score: rData.sections[sectionName] });
+            }
+        });
+        // Top 5 Regions
+        const topRegions = regionScores.sort((a, b) => b.score - a.score).slice(0, 5);
 
-    // 3. Render Modal Content
-    // Ensure modal structure exists
-    let modalEl = document.getElementById('sectionDetailModal');
-    if (!modalEl) {
-        modalEl = document.createElement('div');
-        modalEl.id = 'sectionDetailModal';
-        modalEl.className = 'modal fade';
-        modalEl.setAttribute('tabindex', '-1');
-        modalEl.innerHTML = `
+        // 3. Render Modal Content
+        // Ensure modal structure exists
+        let modalEl = document.getElementById('sectionDetailModal');
+        if (!modalEl) {
+            modalEl = document.createElement('div');
+            modalEl.id = 'sectionDetailModal';
+            modalEl.className = 'modal fade';
+            modalEl.setAttribute('tabindex', '-1');
+            modalEl.innerHTML = `
         <div class="modal-dialog modal-xl modal-dialog-centered" >
             <div class="modal-content border-0 shadow-lg">
                 <div class="modal-header bg-dark text-white">
@@ -2067,14 +2069,14 @@ function openSectionDetail(sectionName) {
                 <div class="modal-body bg-light" id="sectionDetailBody"></div>
             </div>
             </div> `;
-        document.body.appendChild(modalEl);
-    }
+            document.body.appendChild(modalEl);
+        }
 
-    document.getElementById('sectionDetailTitle').textContent = `Analysis: ${sectionName} `;
-    const body = document.getElementById('sectionDetailBody');
-    body.innerHTML = `
+        document.getElementById('sectionDetailTitle').textContent = `Analysis: ${sectionName} `;
+        const body = document.getElementById('sectionDetailBody');
+        body.innerHTML = `
         <div class="row g-4" >
-            < !--Trend Chart-- >
+            <!--Trend Chart-->
             <div class="col-lg-8">
                 <div class="card h-100 border-0 shadow-sm">
                     <div class="card-header bg-white border-0 fw-bold">
@@ -2086,7 +2088,7 @@ function openSectionDetail(sectionName) {
                 </div>
             </div>
             
-            <!--Regional Leaderboard-- >
+            <!--Regional Leaderboard-->
         <div class="col-lg-4">
             <div class="card h-100 border-0 shadow-sm">
                 <div class="card-header bg-white border-0 fw-bold">
@@ -2107,7 +2109,7 @@ function openSectionDetail(sectionName) {
                                         <tr>
                                             <td class="ps-3"><span class="badge bg-light text-dark border">${i + 1}</span></td>
                                             <td class="small fw-bold">${r.name}</td>
-                                            <td class="text-end pe-3 fw-bold ${r.score >= 84 ? 'text-success' : 'text-danger'}">${r.score.toFixed(1)}</td>
+                                            <td class="text-end pe-3 fw-bold ${r.score >= 84 ? 'text-success' : 'text-danger'}">${(typeof r.score === 'number' && !isNaN(r.score)) ? r.score.toFixed(1) : '0.0'}</td>
                                         </tr>
                                     `).join('')}
                             </tbody>
@@ -2119,55 +2121,59 @@ function openSectionDetail(sectionName) {
         </div>
         `;
 
-    // 4. Show Modal
-    const myModal = new bootstrap.Modal(modalEl);
-    myModal.show();
+        // 4. Show Modal
+        const myModal = new bootstrap.Modal(modalEl);
+        myModal.show();
 
-    // 5. Draw Chart (Wait for modal transition)
-    modalEl.addEventListener('shown.bs.modal', function () {
-        const ctx = document.getElementById('sectionTrendChart');
-        if (ctx) {
-            // Destroy old chart if exists (not strictly needed since we rebuild DOM, but good practice if I cached it)
-            // simplified: DOM is fresh.
-            new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: trendLabels,
-                    datasets: [{
-                        label: 'National Score',
-                        data: trendData,
-                        borderColor: '#0d6efd',
-                        backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                        borderWidth: 3,
-                        fill: true,
-                        tension: 0.4,
-                        pointBackgroundColor: '#fff',
-                        pointBorderColor: '#0d6efd',
-                        pointRadius: 5
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: false,
-                            min: 50,
-                            max: 100,
-                            grid: { borderDash: [5, 5] }
-                        },
-                        x: { grid: { display: false } }
+        // 5. Draw Chart (Wait for modal transition)
+        modalEl.addEventListener('shown.bs.modal', function () {
+            const ctx = document.getElementById('sectionTrendChart');
+            if (ctx) {
+                // Destroy old chart if exists (not strictly needed since we rebuild DOM, but good practice if I cached it)
+                // simplified: DOM is fresh.
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: trendLabels,
+                        datasets: [{
+                            label: 'National Score',
+                            data: trendData,
+                            borderColor: '#0d6efd',
+                            backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.4,
+                            pointBackgroundColor: '#fff',
+                            pointBorderColor: '#0d6efd',
+                            pointRadius: 5
+                        }]
                     },
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            backgroundColor: 'rgba(0,0,0,0.8)',
-                            padding: 10,
-                            cornerRadius: 4
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: false,
+                                min: 50,
+                                max: 100,
+                                grid: { borderDash: [5, 5] }
+                            },
+                            x: { grid: { display: false } }
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: 'rgba(0,0,0,0.8)',
+                                padding: 10,
+                                cornerRadius: 4
+                            }
                         }
                     }
-                }
-            });
-        }
-    }, { once: true });
+                });
+            }
+        }, { once: true });
+    } catch (err) {
+        console.error("Critical error in openSectionDetail:", err);
+        alert("Error opening detail: " + err.message);
+    }
 }
