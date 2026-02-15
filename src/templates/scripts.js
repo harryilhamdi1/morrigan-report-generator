@@ -1401,9 +1401,7 @@ function generateSparkline(data, waves) {
 }
 
 function loadStoreDetail(idOverride) {
-    var c = idOverride || document.getElementById("storeSelect").value;
-    // Fallback if accessed via dropdown (rare now)
-    if (!c) c = document.getElementById("storeSelect").value;
+    var c = idOverride || window.currentStoreId || (document.getElementById("storeSelect") ? document.getElementById("storeSelect").value : null);
 
     if (!c) return;
 
