@@ -397,8 +397,7 @@ function renderBranchKPIs(top, fast, gap, hExc, hWarn, hCrit) {
 }
 
 function renderBranchMomentumChart(brData) {
-    // Consultant-grade Lollipop Chart: Refined for maximum clarity (Opus Style)
-    // Sort by Score descending
+    // Consultant-grade Lollipop Chart: Final Polish with Outlet Count
     var sorted = [...brData].sort((a, b) => a.s - b.s);
     var yNames = sorted.map(d => d.n);
     var xScores = sorted.map(d => d.s);
@@ -420,7 +419,7 @@ function renderBranchMomentumChart(brData) {
         base: Array(yNames.length).fill(baselineScore),
         type: 'bar',
         orientation: 'h',
-        marker: { color: dotColors.map(c => c + '25'), line: { width: 0 } }, // 25% opacity stems
+        marker: { color: dotColors.map(c => c + '25'), line: { width: 0 } },
         width: 0.15,
         hoverinfo: 'skip',
         showlegend: false
@@ -442,12 +441,12 @@ function renderBranchMomentumChart(brData) {
         showlegend: false
     };
 
-    // --- Annotations & Layout Adjustments ---
+    // --- Annotations ---
     var annotations = [];
 
-    // 1. Data Labels (Scores & Momentum)
+    // 1. Data Labels (Scores, Momentum, Outlet Count)
     sorted.forEach((d, i) => {
-        // Score: Add bgcolor='white' to mask lines behind the text
+        // Score Label
         annotations.push({
             x: d.s + 1.2,
             y: d.n,
@@ -455,7 +454,7 @@ function renderBranchMomentumChart(brData) {
             showarrow: false,
             font: { size: 12, family: 'Inter', color: '#111827', weight: '700' },
             xanchor: 'left',
-            bgcolor: 'white', // Critical for readability
+            bgcolor: 'white',
             borderpad: 2
         });
 
@@ -463,18 +462,27 @@ function renderBranchMomentumChart(brData) {
         var momColor = d.mom >= 0 ? '#059669' : '#DC2626';
         var momIcon = d.mom >= 0 ? '▲' : '▼';
         annotations.push({
-            x: d.s + 6.0, // Shifted slightly right to accommodate white background
+            x: d.s + 6.0,
             y: d.n,
             text: momIcon + ' ' + Math.abs(d.mom).toFixed(1),
             showarrow: false,
             font: { size: 10, family: 'Inter', color: momColor, weight: '600' },
             xanchor: 'left'
         });
+
+        // Outlet Count (Context Column on Right)
+        annotations.push({
+            x: 108, // Fixed far right position
+            y: d.n,
+            text: d.count + ' Stores',
+            showarrow: false,
+            font: { size: 11, family: 'Inter', color: '#6B7280', weight: '500' },
+            xanchor: 'right'
+        });
     });
 
     // 2. Reference Lines
     var shapes = [
-        // Threshold Line (Red Dash) - Layer 'above' to sit over stems, but below dots
         {
             type: 'line',
             x0: 84, x1: 84,
@@ -482,7 +490,6 @@ function renderBranchMomentumChart(brData) {
             line: { color: '#EF4444', width: 1.5, dash: 'dash' },
             layer: 'below'
         },
-        // Average Line (Blue Dot)
         {
             type: 'line',
             x0: avgScore, x1: avgScore,
@@ -492,12 +499,12 @@ function renderBranchMomentumChart(brData) {
         }
     ];
 
-    // 3. Reference Labels (Split Top/Bottom to avoid collision)
+    // 3. Reference Labels
 
-    // Average Label (TOP of chart)
+    // Average Label (Top)
     annotations.push({
         x: avgScore,
-        y: yNames.length - 0.5, // Top of plotting area
+        y: yNames.length - 0.5,
         text: '<b>AVG:' + avgScore.toFixed(1) + '</b>',
         showarrow: false,
         font: { size: 10, color: '#4472C4', family: 'Inter', weight: 'bold' },
@@ -507,10 +514,10 @@ function renderBranchMomentumChart(brData) {
         yshift: 5
     });
 
-    // Threshold Label (BOTTOM of chart)
+    // Threshold Label (Bottom)
     annotations.push({
         x: 84,
-        y: -0.5, // Bottom of plotting area
+        y: -0.5, // Bottom
         text: '<b>TARGET: 84</b>',
         showarrow: false,
         font: { size: 10, color: '#EF4444', family: 'Inter', weight: 'bold' },
@@ -520,16 +527,28 @@ function renderBranchMomentumChart(brData) {
         yshift: -5
     });
 
+    // Outlet Count Header (Top Right)
+    annotations.push({
+        x: 108,
+        y: yNames.length - 0.5,
+        text: 'SIZE',
+        showarrow: false,
+        font: { size: 9, color: '#9CA3AF', family: 'Inter', weight: '700' },
+        yanchor: 'bottom',
+        xanchor: 'right',
+        yshift: 5
+    });
+
     Plotly.newPlot("branchMomentumChart", [stemTrace, dotTrace], {
         xaxis: {
-            title: { text: '', font: { size: 11, color: '#9CA3AF' } }, // Remove axis title, redundancy
-            range: [baselineScore, 108], // Slightly more breathing room on right
+            title: { text: '', font: { size: 11 } },
+            range: [baselineScore, 110], // Increased range to fit Outlet Count
             showgrid: true,
             gridcolor: '#F3F4F6',
             zeroline: false,
             tickfont: { size: 11, color: '#9CA3AF', family: 'Inter' },
             dtick: 5,
-            side: 'top' // Move X-Axis ticks to top for better readability like a table
+            side: 'top'
         },
         yaxis: {
             automargin: true,
@@ -538,7 +557,7 @@ function renderBranchMomentumChart(brData) {
         },
         shapes: shapes,
         annotations: annotations,
-        margin: { l: 180, r: 80, t: 60, b: 40 }, // Increased top margin for X-axis and Avg Label
+        margin: { l: 180, r: 60, t: 60, b: 40 },
         showlegend: false,
         paper_bgcolor: 'rgba(0,0,0,0)',
         plot_bgcolor: 'rgba(0,0,0,0)',
@@ -551,20 +570,21 @@ function renderBranchMomentumChart(brData) {
 function renderBranchMatrixChart(brData) {
     var x = brData.map(d => d.s);
     var y = brData.map(d => d.mom);
-    // Smart Labels: Only show text for Outliers (Top/Bottom 3 Score or Momentum) to avoid clutter
+    // Smart Labels: Show text for Top/Bottom 3 Score AND Momentum to cover key interest points
     var sortedByScore = [...brData].sort((a, b) => b.s - a.s);
     var sortedByMom = [...brData].sort((a, b) => b.mom - a.mom);
     var outliers = new Set([
-        ...sortedByScore.slice(0, 3).map(d => d.n),   // Top 3 Scores
-        ...sortedByScore.slice(-3).map(d => d.n),     // Bottom 3 Scores
-        ...sortedByMom.slice(0, 3).map(d => d.n),     // Top 3 Mom
-        ...sortedByMom.slice(-3).map(d => d.n)        // Bottom 3 Mom
+        ...sortedByScore.slice(0, 3).map(d => d.n),
+        ...sortedByScore.slice(-3).map(d => d.n),
+        ...sortedByMom.slice(0, 3).map(d => d.n),
+        ...sortedByMom.slice(-3).map(d => d.n)
     ]);
 
-    var text = brData.map(d => outliers.has(d.n) ? d.n : ""); // Hide others
-    var hoverText = brData.map(d => d.n); // Keep hover text for all
+    var text = brData.map(d => outliers.has(d.n) ? d.n : "");
+    var hoverText = brData.map(d => d.n);
 
-    var size = brData.map(d => Math.max(10, Math.min(25, Math.sqrt(d.count) * 6))); // Cap max size
+    // Visuals: White background for text labels to improve readability over gridlines
+    var size = brData.map(d => Math.max(12, Math.min(35, Math.sqrt(d.count) * 7))); // Slightly larger bubbles
     var colors = x.map(s => s >= 84 ? '#002060' : '#DC2626');
 
     // Shapes: Q1 (Stars), Q2 (Rising), Q3 (Watch), Q4 (Critical)
@@ -578,14 +598,14 @@ function renderBranchMatrixChart(brData) {
     var divId = "branchMatrixChart";
     var chart = document.getElementById(divId);
 
-    // Increase chart height slightly to give room
     Plotly.newPlot(divId, [{
         x: x, y: y, text: text, hovertext: hoverText, mode: 'markers+text',
-        marker: { size: size, color: colors, opacity: 0.8, line: { color: 'white', width: 1 }, sizemode: 'diameter' },
-        textposition: 'top center', textfont: { size: 10, family: 'Inter', weight: 'bold', color: '#1F2937' },
-        hovertemplate: '<b>%{hovertext}</b><br>Score: %{x:.2f}<br>Momentum: %{y:.2f}<extra></extra>'
+        marker: { size: size, color: colors, opacity: 0.85, line: { color: 'white', width: 2 }, sizemode: 'diameter' },
+        textposition: 'top center',
+        textfont: { size: 10, family: 'Inter', weight: 'bold', color: '#1F2937', bgcolor: 'rgba(255,255,255,0.8)' }, // Masking
+        hovertemplate: '<b>%{hovertext}</b><br>Score: %{x:.2f}<br>Momentum: %{y:.2f}<br>Outlets: %{marker.size}<extra></extra>'
     }], {
-        xaxis: { title: 'Current Score →', range: [60, 100], showgrid: true, gridcolor: 'white', zeroline: false },
+        xaxis: { title: 'Current Score →', range: [75, 100], showgrid: true, gridcolor: 'white', zeroline: false }, // Zoomed in range?
         yaxis: { title: 'Momentum ↑', range: [-15, 15], showgrid: true, gridcolor: 'white', zeroline: true, zerolinecolor: '#9CA3AF' },
         shapes: [
             ...shapes,
@@ -593,15 +613,15 @@ function renderBranchMatrixChart(brData) {
             { type: 'line', x0: 50, x1: 105, y0: 0, y1: 0, line: { color: '#9CA3AF', width: 1 } }
         ],
         annotations: [
-            { x: 97, y: 18, text: '⭐ STARS', showarrow: false, font: { color: '#059669', size: 14, weight: '900' } },
-            { x: 65, y: 18, text: '⚡ RISING', showarrow: false, font: { color: '#2563EB', size: 14, weight: '900' } },
-            { x: 97, y: -18, text: '👀 WATCH', showarrow: false, font: { color: '#D97706', size: 14, weight: '900' } },
-            { x: 65, y: -18, text: '🛑 CRITICAL', showarrow: false, font: { color: '#DC2626', size: 14, weight: '900' } }
+            { x: 99, y: 18, text: '⭐ STARS', showarrow: false, font: { color: '#059669', size: 14, weight: '900' }, bgcolor: 'white', opacity: 0.8 },
+            { x: 76, y: 18, text: '⚡ RISING', showarrow: false, font: { color: '#2563EB', size: 14, weight: '900' }, bgcolor: 'white', opacity: 0.8 },
+            { x: 99, y: -18, text: '👀 WATCH', showarrow: false, font: { color: '#D97706', size: 14, weight: '900' }, bgcolor: 'white', opacity: 0.8 },
+            { x: 76, y: -18, text: '🛑 CRITICAL', showarrow: false, font: { color: '#DC2626', size: 14, weight: '900' }, bgcolor: 'white', opacity: 0.8 }
         ],
-        margin: { t: 30, b: 50, l: 60, r: 20 },
+        margin: { t: 30, b: 40, l: 50, r: 20 },
         paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
         font: { family: 'Inter' }, hovermode: 'closest',
-        height: 600
+        height: 400
     }, config);
 
     // Interaction
@@ -614,8 +634,126 @@ function renderBranchMatrixChart(brData) {
             document.getElementById("branchContainer").scrollIntoView({ behavior: 'smooth' });
         }
     });
+
+    // Render Scale Efficiency Chart
+    renderBranchScaleChart(brData);
 }
 
+function renderBranchScaleChart(brData) {
+    // Advanced Scale Analysis V4: Granular breakdown (5 Categories)
+    var groups = {
+        '1-5': { min: 1, max: 5, count: 0, scoreSum: 0, momSum: 0, networks: 0, critical: 0, scores: [], names: [] },
+        '6-10': { min: 6, max: 10, count: 0, scoreSum: 0, momSum: 0, networks: 0, critical: 0, scores: [], names: [] },
+        '11-15': { min: 11, max: 15, count: 0, scoreSum: 0, momSum: 0, networks: 0, critical: 0, scores: [], names: [] },
+        '16-20': { min: 16, max: 20, count: 0, scoreSum: 0, momSum: 0, networks: 0, critical: 0, scores: [], names: [] },
+        '21+': { min: 21, max: 999, count: 0, scoreSum: 0, momSum: 0, networks: 0, critical: 0, scores: [], names: [] }
+    };
+
+    brData.forEach(d => {
+        var k = '21+';
+        if (d.count <= 5) k = '1-5';
+        else if (d.count <= 10) k = '6-10';
+        else if (d.count <= 15) k = '11-15';
+        else if (d.count <= 20) k = '16-20';
+
+        groups[k].networks++;
+        groups[k].scoreSum += d.s;
+        groups[k].momSum += d.mom;
+        groups[k].count += d.count;
+        if (d.s < 84) groups[k].critical++;
+        groups[k].scores.push(d.s);
+        groups[k].names.push({ n: d.n, s: d.s });
+    });
+
+    var labels = Object.keys(groups);
+    // Calculations
+    var avgScores = labels.map(k => groups[k].networks > 0 ? groups[k].scoreSum / groups[k].networks : 0);
+    var avgMoms = labels.map(k => groups[k].networks > 0 ? groups[k].momSum / groups[k].networks : 0);
+
+    // Stats
+    var minScores = labels.map(k => groups[k].scores.length > 0 ? Math.min(...groups[k].scores) : 0);
+    var maxScores = labels.map(k => groups[k].scores.length > 0 ? Math.max(...groups[k].scores) : 0);
+    var bestPerformers = labels.map(k => {
+        if (groups[k].names.length === 0) return "N/A";
+        var best = groups[k].names.reduce((prev, curr) => (prev.s > curr.s) ? prev : curr);
+        return `${best.n} (${best.s.toFixed(1)})`;
+    });
+    var worstPerformers = labels.map(k => {
+        if (groups[k].names.length === 0) return "N/A";
+        var worst = groups[k].names.reduce((prev, curr) => (prev.s < curr.s) ? prev : curr);
+        return `${worst.n} (${worst.s.toFixed(1)})`;
+    });
+
+    // Error Bars (Range) - Thinner and Lighter for Readability
+    var errorY = {
+        type: 'data',
+        symmetric: false,
+        array: maxScores.map((max, i) => max - avgScores[i]),
+        arrayminus: avgScores.map((avg, i) => avg - minScores[i]),
+        color: '#9CA3AF', thickness: 1, width: 2, visible: true // Gray, thin
+    };
+
+    // Colors: 5-Step Blue Gradient
+    var barColors = ['#BFDBFE', '#93C5FD', '#60A5FA', '#3B82F6', '#1E40AF'];
+
+    // Trace 1: Bar Chart
+    var trace1 = {
+        x: labels, y: avgScores, type: 'bar', name: 'Avg Score',
+        marker: { color: barColors, line: { width: 0 }, opacity: 0.85 },
+        error_y: errorY,
+        text: avgScores.map(v => v > 0 ? v.toFixed(1) : ""), textposition: 'auto',
+        textfont: { color: 'white', weight: 'bold' }, // White text inside bars
+        hovertemplate:
+            '<b>%{x} Outlets</b><br>' +
+            'Avg Score: %{y:.2f}<br>' +
+            'Range: %{customdata[2]:.1f} - %{customdata[3]:.1f}<br>' +
+            '🏆 Best: %{customdata[4]}<br>' +
+            '⚠️ Lowest: %{customdata[5]}<br>' +
+            'Networks: %{customdata[0]}<br>' +
+            'Critical: %{customdata[1]}<extra></extra>',
+        customdata: labels.map((l, i) => [
+            groups[l].networks,
+            groups[l].critical,
+            minScores[i],
+            maxScores[i],
+            bestPerformers[i],
+            worstPerformers[i]
+        ])
+    };
+
+    // Trace 2: Line Chart (Momentum)
+    var trace2 = {
+        x: labels, y: avgMoms, type: 'scatter', mode: 'lines+markers+text', name: 'Momentum',
+        yaxis: 'y2',
+        line: { color: '#F97316', width: 3, shape: 'spline' },
+        marker: { size: 8, color: 'white', line: { color: '#F97316', width: 2 } },
+        text: avgMoms.map(v => (v > 0 ? "+" : "") + v.toFixed(1)), textposition: 'top center',
+        textfont: { color: '#EA580C', weight: 'bold', size: 10 },
+        hovertemplate: 'Avg Momentum: %{y:.2f}<extra></extra>'
+    };
+
+    Plotly.newPlot('branchScaleChart', [trace1, trace2], {
+        margin: { t: 40, b: 30, l: 40, r: 40 },
+        yaxis: { range: [65, 100], title: { text: 'Avg Score', font: { size: 10, color: '#6B7280' } } },
+        yaxis2: {
+            title: { text: 'Avg Momentum', font: { size: 10, color: '#EA580C' } },
+            overlaying: 'y', side: 'right', showgrid: false, zeroline: false,
+            range: [-10, 15]
+        },
+        xaxis: { title: 'Number of Outlets', titlefont: { size: 10, color: '#9CA3AF' }, tickfont: { size: 11, weight: 'bold' } },
+        showlegend: false,
+        paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+        height: 350, font: { family: 'Inter' },
+        annotations: [
+            {
+                x: labels[avgMoms.indexOf(Math.max(...avgMoms))],
+                y: Math.max(...avgMoms), xref: 'x', yref: 'y2',
+                text: '🚀 Peak Growth', showarrow: true, arrowhead: 2, ax: 0, ay: -25,
+                font: { color: '#EA580C', weight: 'bold', size: 9 }, bgcolor: 'white', opacity: 0.9
+            }
+        ]
+    }, config);
+}
 function renderBranchInsights(top, fast, hCrit, brData) {
     var insights = [];
     insights.push(`<div>📌 <strong>${top.n}</strong> leads with <strong>${top.s.toFixed(2)}</strong>.`);
@@ -632,42 +770,118 @@ function renderBranchInsights(top, fast, hCrit, brData) {
     document.getElementById("branchInsights").innerHTML = insights.join("");
 }
 
+var currentCulpritData = [];
+var currentCulpritPage = 1;
+var CULPRIT_PAGE_SIZE = 5;
+
+// Expose functions globally
+window.changeCulpritPage = function (delta) {
+    currentCulpritPage += delta;
+    renderCulpritList();
+};
+
+function showCulpritModal(branchName) {
+    // Use global sortedWaves to get the latest wave
+    var targetWave = (typeof sortedWaves !== 'undefined') ? sortedWaves[sortedWaves.length - 1] : "Wave 1";
+
+    // Get Stores < 84 in this branch
+    currentCulpritData = Object.values(reportData.stores)
+        .filter(s => s.meta.branch === branchName && s.results[targetWave] && s.results[targetWave].totalScore < 84)
+        .map(s => ({
+            n: s.meta.name,
+            s: s.results[targetWave].totalScore,
+            sect: s.results[targetWave].sections
+        }))
+        .sort((a, b) => a.s - b.s); // Lowest first
+
+    document.getElementById("culpritBranchName").innerText = branchName;
+    currentCulpritPage = 1;
+    renderCulpritList();
+
+    var myModal = new bootstrap.Modal(document.getElementById('culpritModal'));
+    myModal.show();
+}
+
+function renderCulpritList() {
+    var container = document.getElementById("culpritList");
+    container.innerHTML = "";
+
+    var start = (currentCulpritPage - 1) * CULPRIT_PAGE_SIZE;
+    var end = start + CULPRIT_PAGE_SIZE;
+    var pageData = currentCulpritData.slice(start, end);
+
+    if (pageData.length === 0) {
+        container.innerHTML = '<div class="text-center p-4 text-muted">No critical stores found.</div>';
+        return;
+    }
+
+    pageData.forEach(s => {
+        // Find worst section
+        var worstSec = Object.entries(s.sect)
+            .map(([k, v]) => ({ k: k, s: v.sum / v.count }))
+            .sort((a, b) => a.s - b.s)[0];
+
+        var item = document.createElement("div");
+        item.className = "list-group-item p-3 border-light hover-bg-light";
+        item.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="fw-bold text-dark">${s.n}</span>
+                <span class="badge bg-danger rounded-pill">${s.s.toFixed(1)}</span>
+            </div>
+            <div class="small text-muted d-flex align-items-center gap-2">
+                <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-1 px-1">⚠ ${worstSec.k} ${(worstSec.s).toFixed(1)}</span>
+                <span>requires immediate action.</span>
+            </div>
+        `;
+        container.appendChild(item);
+    });
+
+    // Pagination Controls
+    document.getElementById("culpritPageIndicator").innerText = `Page ${currentCulpritPage} of ${Math.ceil(currentCulpritData.length / CULPRIT_PAGE_SIZE)}`;
+    document.getElementById("btnCulpritPrev").disabled = currentCulpritPage === 1;
+    document.getElementById("btnCulpritNext").disabled = end >= currentCulpritData.length;
+}
+
 function renderBranchCards(data, waves) {
     var cont = document.getElementById("branchContainer");
     cont.innerHTML = "";
 
-    // Sort by Score Descending for lists
+    // Sort by Score Descending
     var viewData = [...data].sort((a, b) => b.s - a.s);
 
     viewData.forEach((d, i) => {
         var rank = i + 1;
-        var badge = d.s >= 95 ? '<span class="badge bg-primary-custom">EXCELLENT</span>' : (d.s >= 84 ? '<span class="badge bg-warning text-dark">WARNING</span>' : '<span class="badge bg-danger">CRITICAL</span>');
+        var badge = d.s >= 95 ? '<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-3 py-2 rounded-pill fw-bold">EXCELLENT</span>' :
+            (d.s >= 84 ? '<span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-3 py-2 rounded-pill fw-bold">WARNING</span>' :
+                '<span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-3 py-2 rounded-pill fw-bold">CRITICAL</span>');
 
         var yTrend = waves.map(w => { var bd = reportData.branches[d.n][w]; return bd ? bd.sum / bd.count : null; });
         var sparkHTML = generateSparkline(yTrend);
 
-        // Limit lists to top 3 items
-        var getStores = (asc) => Object.values(reportData.stores)
-            .filter(s => s.meta.branch === d.n && s.results[waves[waves.length - 1]])
+        // Data for Lists
+        var branchStores = Object.values(reportData.stores).filter(s => s.meta.branch === d.n && s.results[waves[waves.length - 1]]);
+        var criticalCount = branchStores.filter(s => s.results[waves[waves.length - 1]].totalScore < 84).length;
+
+        var lowestStores = [...branchStores]
             .map(s => ({ n: s.meta.name, s: s.results[waves[waves.length - 1]].totalScore }))
-            .sort((a, b) => asc ? a.s - b.s : b.s - a.s) // asc = worst first
+            .sort((a, b) => a.s - b.s) // Lowest first
             .slice(0, 3);
 
-        var getSecs = (asc) => Object.entries(d.d.sections)
-            .map(([k, v]) => ({ k: k, s: v.sum / v.count }))
-            .sort((a, b) => asc ? a.s - b.s : b.s - a.s)
-            .slice(0, 3);
-
-        var dragStores = getStores(true).map(s => `
-            <div class="d-flex justify-content-between small mb-1 border-bottom border-light pb-1">
-                <span class="text-truncate text-secondary" style="max-width:180px;" title="${s.n}">${s.n}</span>
-                <span class="fw-bold ${s.s < 84 ? 'text-danger' : 'text-dark'}">${s.s.toFixed(1)}</span>
+        var lowestHTML = lowestStores.map(s => `
+            <div class="d-flex justify-content-between align-items-center py-2 border-bottom border-light-subtle">
+                <span class="fw-medium text-dark small text-wrap lh-sm" style="max-width: 70%;">${s.n}</span>
+                <span class="fw-bold ${s.s < 84 ? 'text-danger' : 'text-dark'} small bg-light-subtle px-2 py-1 rounded">${s.s.toFixed(1)}</span>
             </div>`).join("");
 
-        var focusSecs = getSecs(true).map(s => `
-            <div class="d-flex justify-content-between small mb-1 border-bottom border-light pb-1">
-                <span class="text-truncate text-secondary" style="max-width:180px;" title="${s.k}">${s.k}</span>
-                <span class="fw-bold ${s.s < 84 ? 'text-danger' : 'text-dark'}">${s.s.toFixed(1)}</span>
+        var prioritySecs = Object.entries(d.d.sections)
+            .map(([k, v]) => ({ k: k, s: v.sum / v.count }))
+            .sort((a, b) => a.s - b.s)
+            .slice(0, 3);
+
+        var priorityHTML = prioritySecs.map(s => `
+            <div class="d-flex justify-content-between align-items-center py-2 border-bottom border-light-subtle">
+                <span class="fw-medium text-dark small text-wrap lh-sm" style="max-width: 70%;">${s.k}</span>
+                <span class="fw-bold ${s.s < 84 ? 'text-danger' : 'text-dark'} small bg-light-subtle px-2 py-1 rounded">${s.s.toFixed(1)}</span>
             </div>`).join("");
 
         var col = document.createElement("div");
@@ -675,34 +889,61 @@ function renderBranchCards(data, waves) {
         col.dataset.name = d.n.toLowerCase();
 
         col.innerHTML = `
-        <div class="card border-0 shadow-sm hover-elevate" style="transition: all 0.2s ease-in-out;">
-            <div class="card-body p-4">
-                <div class="row align-items-center">
-                    <div class="col-xl-3 col-lg-4 border-end">
-                        <div class="d-flex align-items-center mb-2">
-                            <span class="badge bg-white text-dark border me-2 rounded-circle d-flex align-items-center justify-content-center shadow-sm" style="width:28px;height:28px;font-size:0.8rem;">${rank}</span>
-                            <h5 class="fw-bold text-dark mb-0 text-truncate" title="${d.n}" style="font-family: 'Inter', sans-serif;">${d.n}</h5>
-                        </div>
-                        <div class="d-flex gap-2 mb-3">
-                            <span class="badge bg-light text-secondary border">${d.count} Outlets</span>
-                            ${badge}
-                        </div>
-                        <h2 class="display-4 fw-bold mb-0 ${d.s < 84 ? 'text-danger' : 'text-primary'}" style="letter-spacing:-1px;">${d.s.toFixed(2)}</h2>
-                         <div class="small fw-bold ${d.mom >= 0 ? 'text-success' : 'text-danger'} mt-1">
-                            ${d.mom >= 0 ? '▲ TREND UP' : '▼ TREND DOWN'} <span class="text-muted ms-1">(${Math.abs(d.mom).toFixed(2)})</span>
+        <div class="card border-0 shadow hover-shadow-lg mb-4 overflow-hidden" style="border-radius: 16px; transition: all 0.3s ease;">
+            <!-- Header -->
+            <div class="card-header border-0 bg-gradient-to-r from-light to-white p-4" style="background: linear-gradient(90deg, #F9FAFB 0%, #FFFFFF 100%);">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="bg-dark text-white rounded-circle d-flex align-items-center justify-content-center fw-bold shadow-sm" style="width:40px;height:40px;font-size:1.1rem;">${rank}</div>
+                        <div>
+                            <h4 class="fw-bold text-dark mb-0" style="font-family: 'Outfit', sans-serif;">${d.n}</h4>
+                            <div class="text-muted small mt-1 fw-medium">${d.count} Outlets · Average Score</div>
                         </div>
                     </div>
-                    <div class="col-xl-3 col-lg-2 px-4 border-end d-none d-lg-block">
-                        <div class="small text-uppercase fw-bold text-muted mb-3" style="font-size:0.7rem; letter-spacing:0.5px;">Momentum Trend</div>
-                        <div style="height:50px;">${sparkHTML}</div>
+                    <div class="text-end">
+                        <h2 class="display-5 fw-bold mb-0 ${d.s < 84 ? 'text-danger' : 'text-success'}">${d.s.toFixed(2)}</h2>
+                        ${badge}
                     </div>
-                    <div class="col-xl-3 col-lg-3 px-4 border-end">
-                         <div class="small text-uppercase fw-bold text-danger mb-2" style="font-size:0.7rem;">📉 Drag Stores (Bottom 3)</div>
-                         ${dragStores || '<span class="small text-muted">No data</span>'}
+                </div>
+            </div>
+            
+            <div class="card-body p-0">
+                <div class="row g-0">
+                    <!-- Col 1: Trend -->
+                    <div class="col-lg-3 border-end border-light-subtle p-4">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <h6 class="text-uppercase fw-bold text-muted small mb-0">Momentum</h6>
+                            <span class="badge ${d.mom >= 0 ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'} rounded-pill">
+                                ${d.mom >= 0 ? '▲ +' : '▼ '}${d.mom.toFixed(2)}
+                            </span>
+                        </div>
+                        <div style="height: 60px; opacity: 0.7;">${sparkHTML}</div>
+                        <p class="small text-muted mt-3 mb-0 lh-sm">Wave-over-wave trend.</p>
                     </div>
-                    <div class="col-xl-3 col-lg-3 px-4">
-                         <div class="small text-uppercase fw-bold text-warning mb-2" style="font-size:0.7rem; color: #B45309 !important;">⚠ Focus Sections</div>
-                         ${focusSecs || '<span class="small text-muted">No data</span>'}
+
+                    <!-- Col 2: Lowest Performers -->
+                    <div class="col-lg-5 p-4 bg-light bg-opacity-10 border-end border-light-subtle">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                             <h6 class="text-uppercase fw-bold text-danger small mb-0">📉 Lowest Performing Stores</h6>
+                        </div>
+                        <div class="mb-0">${lowestHTML}</div>
+                    </div>
+
+                    <!-- Col 3: Priority Areas & ACTIONS -->
+                    <div class="col-lg-4 p-4">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                             <h6 class="text-uppercase fw-bold text-warning small mb-0" style="color: #B45309 !important;">⚠ Priority Focus Areas</h6>
+                        </div>
+                        <div class="mb-3">${priorityHTML}</div>
+                        
+                        <!-- Requested: Clickable Button in Focus Area -->
+                        ${criticalCount > 0 ? `
+                        <div class="mt-3 pt-3 border-top border-light-subtle">
+                            <button class="btn btn-danger w-100 shadow-sm d-flex justify-content-between align-items-center px-3 py-2 rounded-pill" onclick="window.showCulpritModal('${d.n}')">
+                                <span class="fw-bold small">🚨 View ${criticalCount} Critical Stores</span>
+                                <i class="bi bi-arrow-right"></i>
+                            </button>
+                        </div>` : ''}
                     </div>
                 </div>
             </div>
@@ -710,7 +951,6 @@ function renderBranchCards(data, waves) {
         cont.appendChild(col);
     });
 }
-
 function filterBranchCards() {
     var term = document.getElementById("branchSearch").value.toLowerCase();
     var cards = document.querySelectorAll(".branch-card-item");

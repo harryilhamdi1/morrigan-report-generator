@@ -29,12 +29,20 @@
             </div>
         </div>
         <div class="col-xl-6">
-            <div class="card border-0 shadow-sm h-100 p-4">
+            <div class="card border-0 shadow-sm p-4 mb-4">
                 <div class="d-flex justify-content-between align-items-center mb-1">
                     <h5 class="fw-bold text-dark mb-0">Strategic Growth Matrix</h5>
                 </div>
                 <p class="text-muted small mb-3">Performance (X) vs Momentum (Y) — Bubble size = Outlet count</p>
-                <div id="branchMatrixChart" style="height: 500px;"></div>
+                <div id="branchMatrixChart" style="height: 400px;"></div>
+            </div>
+
+            <div class="card border-0 shadow-sm p-4">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <h5 class="fw-bold text-dark mb-0">Scale Efficiency Analysis</h5>
+                </div>
+                <p class="text-muted small mb-3">Does size matter? (Bar: Avg Score | Line: Momentum | Badge: Risk)</p>
+                <div id="branchScaleChart" style="height: 300px;"></div>
             </div>
         </div>
     </div>
@@ -68,5 +76,36 @@
     </div>
     <div id="branchContainer" class="row g-4">
         <!-- Wide cards injected via JS -->
+    </div>
+</div>
+
+<!-- Premium Culprit Modal -->
+<div class="modal fade" id="culpritModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+            <div class="modal-header border-bottom-0 bg-light-subtle pb-0 pt-4 px-4">
+                <div>
+                    <h5 class="modal-title fw-bold text-dark mb-1">Critical Performance Alerts</h5>
+                    <p class="text-muted small mb-0">Stores requiring immediate attention (<span
+                            class="text-danger fw-bold">
+                            <84< /span>) in <span id="culpritBranchName" class="fw-bold text-primary"></span></p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div id="culpritList" class="list-group list-group-flush">
+                    <!-- Stores injected here -->
+                </div>
+            </div>
+            <div class="modal-footer border-top-0 bg-light-subtle justify-content-between px-4 py-3">
+                <span id="culpritPageIndicator" class="text-muted small fw-bold">Page 1</span>
+                <div>
+                    <button id="btnCulpritPrev" class="btn btn-sm btn-outline-dark rounded-pill px-3 me-1"
+                        onclick="changeCulpritPage(-1)" disabled>Previous</button>
+                    <button id="btnCulpritNext" class="btn btn-sm btn-dark rounded-pill px-3"
+                        onclick="changeCulpritPage(1)">Next</button>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
