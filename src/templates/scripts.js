@@ -369,20 +369,9 @@ function updateRegionalPriorities(regionName) {
 
     if (!container || !regData || !regData.details) return;
 
-    // Update Card Header Title
-    const header = container.closest('.card').querySelector('.card-header-clean');
-    if (header) {
-        header.innerHTML = `
-            <div class="d-flex align-items-center">
-                <div class="bg-white bg-opacity-20 p-2 rounded-2 me-3">
-                    <i class="bi bi-exclamation-triangle-fill"></i>
-                </div>
-                <div>
-                    <div class="fw-bold">Priority Focus: ${regionName}</div>
-                    <div class="small opacity-75" style="font-size: 0.7rem;">Top 5 Improvement Areas for Current Wave</div>
-                </div>
-            </div>`;
-    }
+    // Update Header Display
+    const nameDisplay = document.getElementById("selectedRegionNameDisplay");
+    if (nameDisplay) nameDisplay.textContent = regionName;
 
     let allItems = [];
     Object.entries(regData.details).forEach(([sec, items]) => {

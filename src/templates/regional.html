@@ -4,15 +4,6 @@
             <h2 class="text-primary-custom mb-0 fw-bold">Regional Analysis</h2>
             <p class="text-muted m-0">Strategic comparison and focus areas for specific operational units</p>
         </div>
-        <div class="d-flex align-items-center bg-white p-2 rounded-3 shadow-sm border">
-            <span class="small fw-bold text-muted me-3 ms-2 text-uppercase"
-                style="font-size: 0.65rem; letter-spacing: 0.5px;">Select Region:</span>
-            <select id="regionSelector" class="form-select form-select-sm border-0 fw-bold text-primary"
-                style="min-width: 200px; cursor: pointer; box-shadow: none;"
-                onchange="updateRegionalPriorities(this.value)">
-                <!-- Dynamic Options -->
-            </select>
-        </div>
     </div>
     <!-- Row 1: Performance Trends -->
     <div class="card mb-4 border-0 shadow-sm">
@@ -23,7 +14,20 @@
     </div>
     <!-- Row 1.5: Regional Priorities -->
     <div class="card mb-4 border-0 shadow-sm">
-        <div class="card-header-clean bg-danger text-white">⚠️ Regional Top Priorities (Lowest Scoring Items)</div>
+        <div class="card-header-clean bg-danger text-white d-flex justify-content-between align-items-center py-2"
+            style="border-radius: 8px 8px 0 0;">
+            <div class="d-flex align-items-center" id="regPriorityHeaderTitle">
+                <i class="bi bi-exclamation-triangle-fill me-3"></i>
+                <span class="fw-bold">Priority Focus: <span id="selectedRegionNameDisplay">Loading...</span></span>
+            </div>
+            <div class="bg-white p-1 rounded-2 shadow-sm" style="min-width: 200px;">
+                <select id="regionSelector" class="form-select form-select-sm border-0 fw-bold text-primary"
+                    style="cursor: pointer; box-shadow: none; font-size: 0.75rem;"
+                    onchange="updateRegionalPriorities(this.value)">
+                    <!-- Dynamic Options -->
+                </select>
+            </div>
+        </div>
         <div class="card-body">
             <div id="regPrioritiesList" class="row g-3"></div>
         </div>
