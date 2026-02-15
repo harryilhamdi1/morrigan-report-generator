@@ -1322,6 +1322,21 @@ function showStoreList() {
 
 
 var radarMode = 'region'; // Default
+var deviationMode = 'national'; // Default for store comparison
+
+function toggleDeviationMode(mode) {
+    deviationMode = mode;
+    ['National', 'Region', 'Branch'].forEach(m => {
+        const btn = document.getElementById('btnDev' + m);
+        if (btn) {
+            if (m.toLowerCase() === mode) btn.classList.add('active');
+            else btn.classList.remove('active');
+        }
+    });
+
+    // Re-load detail to refresh chart with new gaps
+    loadStoreDetail();
+}
 
 function toggleRadar(mode) {
     radarMode = mode;
@@ -1539,12 +1554,24 @@ function loadStoreDetail(idOverride) {
     Object.entries(cur.sections).forEach(([k, v]) => {
         var isBad = v < 84;
 
-        // Calculate Gap
-        var avg = radarMode === 'region' ?
+        // Calculate Gap for Table (Radar mode)
+        var tableAvg = radarMode === 'region' ?
             (regData && regData.sections[k] ? regData.sections[k].sum / regData.sections[k].count : 0) :
             (brData && brData.sections[k] ? brData.sections[k].sum / brData.sections[k].count : 0);
-        var gap = v - avg;
-        var gapHTML = `<span class="small fw-bold ${gap >= 0 ? 'text-success' : 'text-danger'}" > ${gap >= 0 ? '+' : ''}${gap.toFixed(1)}</span> `;
+        var tableGap = v - tableAvg;
+        var gapHTML = `<span class="small fw-bold ${tableGap >= 0 ? 'text-success' : 'text-danger'}" > ${tableGap >= 0 ? '+' : ''}${tableGap.toFixed(1)}</span> `;
+
+        // Multi-level Gaps for Deviation Chart
+        var natData = reportData.summary[currentWaveKey];
+        var natAvg = (natData && natData.sections[k]) ? natData.sections[k].sum / natData.sections[k].count : 0;
+        var rAvg = (regData && regData.sections[k]) ? regData.sections[k].sum / regData.sections[k].count : 0;
+        var bAvg = (brData && brData.sections[k]) ? brData.sections[k].sum / brData.sections[k].count : 0;
+
+        var gaps = {
+            national: v - natAvg,
+            region: v - rAvg,
+            branch: v - bAvg
+        };
 
         // Store for Insights
         // Store for Insights
@@ -1600,7 +1627,7 @@ function loadStoreDetail(idOverride) {
                 }
             });
         }
-        insightData.push({ sec: k, score: v, gap: gap, avg: avg, failed: failedItems, fixed: fixedItems });
+        insightData.push({ sec: k, score: v, gap: gaps[deviationMode], gaps: gaps, failed: failedItems, fixed: fixedItems });
 
 
         // Generate Sparkline Data
@@ -1823,8 +1850,10 @@ function renderPerformanceInsights(data) {
         return parts.length > 3 ? parts.slice(0, 3).join(' ') + '...' : d.sec;
     });
 
-    const values = sortedData.map(d => d.gap);
+    const values = sortedData.map(d => d.gaps[deviationMode]);
     const colors = values.map(v => v >= 0 ? '#10B981' : '#EF4444'); // Green / Red
+
+    const xAxisTitle = "Diff vs " + deviationMode.charAt(0).toUpperCase() + deviationMode.slice(1) + " Avg";
 
     Plotly.newPlot("stDeviationChart", [{
         type: 'bar',
@@ -1837,7 +1866,7 @@ function renderPerformanceInsights(data) {
         hoverinfo: 'x+y'
     }], {
         margin: { t: 20, l: 150, r: 20, b: 30 },
-        xaxis: { title: "Diff vs Regional Avg", zeroline: true, zerolinecolor: '#374151' },
+        xaxis: { title: xAxisTitle, zeroline: true, zerolinecolor: '#374151' },
         yaxis: { automargin: true },
         height: 300,
         font: { family: "Inter, sans-serif", size: 11 }

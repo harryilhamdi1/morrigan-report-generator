@@ -232,13 +232,21 @@
             <!-- Deviation Chart -->
             <div class="col-lg-7">
                 <div class="card h-100 border-0 shadow-sm">
-                    <div class="card-header bg-white border-0 py-3">
+                    <div
+                        class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
                         <h6 class="fw-bold text-dark mb-0"><i
-                                class="bi bi-bar-chart-align-global me-2 text-primary"></i>Performance Deviation vs
-                            Region</h6>
-                        <button class="btn btn-sm btn-outline-secondary rounded-pill px-3 shadow-sm"
+                                class="bi bi-bar-chart-align-global me-2 text-primary"></i>Performance Deviation</h6>
+                        <div class="btn-group btn-group-sm rounded-pill p-1 bg-light" role="group">
+                            <button type="button" class="btn btn-sm rounded-pill btn-outline-secondary px-3 active"
+                                id="btnDevNational" onclick="toggleDeviationMode('national')">National</button>
+                            <button type="button" class="btn btn-sm rounded-pill btn-outline-secondary px-3"
+                                id="btnDevRegion" onclick="toggleDeviationMode('region')">Region</button>
+                            <button type="button" class="btn btn-sm rounded-pill btn-outline-secondary px-3"
+                                id="btnDevBranch" onclick="toggleDeviationMode('branch')">Branch</button>
+                        </div>
+                        <button class="btn btn-sm btn-outline-secondary rounded-pill px-3 shadow-sm d-none d-md-block"
                             onclick="openChartModal('stDeviationChart', 'Performance Deviation')"
-                            title="Expand Chart"><i class="bi bi-arrows-fullscreen me-1"></i> Expand</button>
+                            title="Expand Chart"><i class="bi bi-arrows-fullscreen"></i></button>
                     </div>
                     <div class="card-body">
                         <div id="stDeviationChart" style="height: 300px;"></div>
