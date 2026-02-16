@@ -65,6 +65,97 @@
         </div>
     </div>
 
+    <!-- Regional Sentiment Map -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-header-clean d-flex justify-content-between align-items-center">
+                    <span>Regional Sentiment Map</span>
+                    <small class="text-muted fw-normal">Net Positive Sentiment by Region</small>
+                </div>
+                <div class="card-body">
+                    <div id="vocRegionalMap" class="d-flex flex-column gap-3">
+                        <div class="text-center text-muted py-4">Loading regional data...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Service Standards Compliance -->
+    <div class="row mb-4" id="vocServiceStandards">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header-clean">
+                    <i class="bi bi-person-check-fill me-2 text-primary"></i>Service Standards Compliance
+                </div>
+                <div class="card-body p-4">
+                    <div class="row g-4 text-center">
+                        <!-- Warm Welcome -->
+                        <div class="col-md-4 border-end">
+                            <h6 class="text-muted text-uppercase small fw-bold mb-3">Warm Welcome</h6>
+                            <div class="d-flex justify-content-center align-items-center mb-2">
+                                <div class="position-relative" style="width: 100px; height: 100px;">
+                                    <svg class="w-100 h-100" viewBox="0 0 36 36">
+                                        <path class="text-light"
+                                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                            fill="none" stroke="#f1f5f9" stroke-width="3" />
+                                        <path id="circleWelcome" class="text-primary" stroke-dasharray="0, 100"
+                                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                            fill="none" stroke="#3b82f6" stroke-width="3" />
+                                    </svg>
+                                    <div class="position-absolute top-50 start-50 translate-middle fw-bold fs-4 text-dark"
+                                        id="valWelcome">0%</div>
+                                </div>
+                            </div>
+                            <div class="small text-muted mt-2">Greeting & Gesture</div>
+                        </div>
+
+                        <!-- Active Selling -->
+                        <div class="col-md-4 border-end">
+                            <h6 class="text-muted text-uppercase small fw-bold mb-3">Active Selling</h6>
+                            <div class="d-flex justify-content-center align-items-center mb-2">
+                                <div class="position-relative" style="width: 100px; height: 100px;">
+                                    <svg class="w-100 h-100" viewBox="0 0 36 36">
+                                        <path class="text-light"
+                                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                            fill="none" stroke="#f1f5f9" stroke-width="3" />
+                                        <path id="circleSelling" class="text-success" stroke-dasharray="0, 100"
+                                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                            fill="none" stroke="#10b981" stroke-width="3" />
+                                    </svg>
+                                    <div class="position-absolute top-50 start-50 translate-middle fw-bold fs-4 text-dark"
+                                        id="valSelling">0%</div>
+                                </div>
+                            </div>
+                            <div class="small text-muted mt-2">Upselling & Product Knowledge</div>
+                        </div>
+
+                        <!-- Closing -->
+                        <div class="col-md-4">
+                            <h6 class="text-muted text-uppercase small fw-bold mb-3">Service Closing</h6>
+                            <div class="d-flex justify-content-center align-items-center mb-2">
+                                <div class="position-relative" style="width: 100px; height: 100px;">
+                                    <svg class="w-100 h-100" viewBox="0 0 36 36">
+                                        <path class="text-light"
+                                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                            fill="none" stroke="#f1f5f9" stroke-width="3" />
+                                        <path id="circleClosing" class="text-warning" stroke-dasharray="0, 100"
+                                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                            fill="none" stroke="#f59e0b" stroke-width="3" />
+                                    </svg>
+                                    <div class="position-absolute top-50 start-50 translate-middle fw-bold fs-4 text-dark"
+                                        id="valClosing">0%</div>
+                                </div>
+                            </div>
+                            <div class="small text-muted mt-2">Farewell & Smile</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Failure Pattern Analysis -->
     <div class="row mb-4">
         <div class="col-12">
@@ -90,3 +181,119 @@
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="vocThemeModal" tabindex="-1" aria-hidden="true" style="z-index: 2050;">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+            <div class="modal-header border-bottom-0 bg-white px-4 py-3">
+                <div class="d-flex align-items-center">
+                    <div id="vocThemeIcon"
+                        class="rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center me-3"
+                        style="width: 48px; height: 48px;">
+                        <i class="bi bi-chat-quote-fill text-primary fs-4"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark mb-0" id="vocThemeModalTitle">Theme Analysis</h5>
+                        <p class="text-muted small mb-0">Deep dive into customer sentiment patterns</p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0 bg-light">
+                <!-- Insight Dashboard -->
+                <div class="bg-white p-4 border-bottom mb-3 shadow-sm">
+                    <div class="row g-4">
+                        <!-- KPI 1: Sentiment Distribution -->
+                        <div class="col-md-4 border-end">
+                            <h6 class="text-uppercase text-muted small fw-bold mb-3">Sentiment Distribution</h6>
+                            <div class="d-flex align-items-center mb-2">
+                                <div class="progress flex-grow-1" style="height: 12px; border-radius: 6px;">
+                                    <div id="barPos" class="progress-bar bg-success" role="progressbar"
+                                        style="width: 0%"></div>
+                                    <div id="barNeg" class="progress-bar bg-danger" role="progressbar"
+                                        style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between small fw-bold">
+                                <span class="text-success" id="valPos">0% Positive</span>
+                                <span class="text-danger" id="valNeg">0% Negative</span>
+                            </div>
+                            <p class="text-muted small mt-2 mb-0 fst-italic" id="vocThemeInsight">Calculating...</p>
+                        </div>
+
+                        <!-- KPI 2: Top Associated Keywords -->
+                        <div class="col-md-5 border-end">
+                            <h6 class="text-uppercase text-muted small fw-bold mb-3">Top Associated Keywords</h6>
+                            <div id="vocThemeKeywords" class="d-flex flex-wrap gap-2">
+                                <span class="text-muted small">Loading keywords...</span>
+                            </div>
+                        </div>
+
+                        <!-- KPI 3: Top Contributing Cities -->
+                        <div class="col-md-3">
+                            <h6 class="text-uppercase text-muted small fw-bold mb-3">Top Locations</h6>
+                            <ul id="vocThemeLocations" class="list-unstyled mb-0 small">
+                                <li class="text-muted">Loading...</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Feedback Stream -->
+                <!-- Feedback Stream -->
+                <div class="row g-0 px-3 pb-3">
+                    <div class="col-md-6 pe-md-2">
+                        <div class="card border-0 shadow-sm h-100" style="border-radius: 12px; overflow: hidden;">
+                            <div class="card-header bg-white border-bottom-0 py-3">
+                                <h6 class="fw-bold text-success mb-0 d-flex align-items-center">
+                                    <div class="bg-success bg-opacity-10 p-1 rounded me-2"><i
+                                            class="bi bi-hand-thumbs-up-fill"></i></div> What They Love
+                                </h6>
+                            </div>
+                            <div class="card-body bg-light bg-opacity-50 p-3" id="vocThemePositive"
+                                style="min-height: 300px; max-height: 500px; overflow-y: auto;"></div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 ps-md-2 mt-3 mt-md-0">
+                        <div class="card border-0 shadow-sm h-100" style="border-radius: 12px; overflow: hidden;">
+                            <div class="card-header bg-white border-bottom-0 py-3">
+                                <h6 class="fw-bold text-danger mb-0 d-flex align-items-center">
+                                    <div class="bg-danger bg-opacity-10 p-1 rounded me-2"><i
+                                            class="bi bi-exclamation-triangle-fill"></i></div> What Needs Fixing
+                                </h6>
+                            </div>
+                            <div class="card-body bg-light bg-opacity-50 p-3" id="vocThemeNegative"
+                                style="min-height: 300px; max-height: 500px; overflow-y: auto;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Executive Summary Tile -->
+                <div class="px-3 pb-4">
+                    <div class="card border-0 shadow-sm"
+                        style="border-radius: 12px; overflow: hidden; background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);">
+                        <div class="card-body p-4 position-relative">
+                            <div class="position-absolute top-0 start-0 w-100"
+                                style="height: 4px; background: linear-gradient(90deg, #10B981, #3B82F6, #EF4444);">
+                            </div>
+                            <h6 class="text-uppercase text-muted small fw-bold mb-3"><i
+                                    class="bi bi-stars text-warning me-2"></i>Executive Verdict</h6>
+                            <div class="row align-items-center">
+                                <div class="col-md-1 d-none d-md-block text-center">
+                                    <div class="rounded-circle bg-dark text-white d-flex align-items-center justify-content-center mx-auto"
+                                        style="width: 50px; height: 50px;">
+                                        <i class="bi bi-lightbulb-fill fs-4"></i>
+                                    </div>
+                                </div>
+                                <div class="col-md-11">
+                                    <p class="mb-0 text-dark fw-medium" id="vocThemeSummary"
+                                        style="font-size: 1.05rem; line-height: 1.6;">
+                                        Analyzing feedback data...
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>

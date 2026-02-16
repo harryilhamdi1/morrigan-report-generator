@@ -14,7 +14,14 @@ function buildHierarchy(allStoreData, waves) {
 
         // Collect VOC Data for Latest Wave
         if (waveKey === latestWaveKeyForCheck && entry.qualitative && entry.qualitative.length > 0) {
-            allQualitative.push(...entry.qualitative);
+            // Enrich qualitative data with site metadata for citation & regional analysis
+            const enrichedQualitative = entry.qualitative.map(q => ({
+                ...q,
+                siteName: entry.siteName,
+                siteCode: entry.siteCode,
+                region: entry.region
+            }));
+            allQualitative.push(...enrichedQualitative);
         }
 
         // Collect Failure Reasons for Latest Wave (for theme aggregation)

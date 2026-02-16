@@ -4,13 +4,13 @@
 
 const STOP_WORDS = new Set([
     'dan', 'yg', 'yang', 'di', 'ke', 'dari', 'ini', 'itu', 'untuk', 'pada', 'adalah',
-    'sebagai', 'juga', 'dengan', 'ada', 'tidak', 'tak', 'akan', 'sudah', 'atau', 'tetapi',
+    'sebagai', 'juga', 'dengan', 'ada', 'tak', 'akan', 'sudah', 'atau', 'tetapi',
     'tapi', 'namun', 'karena', 'sebab', 'bisa', 'dapat', 'oleh', 'saat', 'ketika', 'maka',
     'kalau', 'jika', 'bila', 'sehingga', 'agar', 'supaya', 'lalu', 'kmudian', 'sedangkan',
     'sementara', 'sambil', 'serta', 'bahwa', 'apakah', 'siapa', 'apa', 'dimana', 'kapan',
     'kenapa', 'mengapa', 'bagaimana', 'brp', 'berapa', 'hanya', 'saja', 'lagi', 'masih',
     'pernah', 'selalu', 'sering', 'jarang', 'kadang', 'biasanya', 'memang', 'tentu', 'pasti',
-    'mungkin', 'barangkali', 'entah', 'jangan', 'bukan', 'belum', 'harus', 'mesti', 'perlu',
+    'mungkin', 'barangkali', 'entah', 'jangan', 'bukan', 'harus', 'mesti', 'perlu',
     'wajib', 'boleh', 'dilarang', 'terhadap', 'tentang', 'seperti', 'bagaikan', 'laksana',
     'daripada', 'sekadar', 'cuma', 'hampir', 'nyaris', 'sangat', 'sekali', 'amat', 'terlalu',
     'kurang', 'lebih', 'paling', 'cukup', 'sedikit', 'banyak', 'semua', 'segala', 'seluruh',
@@ -19,7 +19,7 @@ const STOP_WORDS = new Set([
     'si', 'sang', 'nya', 'mu', 'ku', 'kah', 'pun', 'lah', 'tah', 'dong', 'kok', 'sih',
     'deh', 'kan', 'ya', 'yuk', 'mari', 'halo', 'hai', 'oi', 'mas', 'mba', 'pak', 'bu',
     'kak', 'bang', 'dek', 'toko', 'eiger', 'store', 'outlet', 'pelayanan', 'produk', 'barang',
-    'tempat', 'untuk', 'nya', 'kalo', 'gak', 'gk', 'tdk', 'tp', 'krn', 'jd', 'bgt', 'banget',
+    'tempat', 'untuk', 'nya', 'kalo', 'gak', 'gk', 'tp', 'krn', 'jd', 'bgt', 'banget',
     'aja', 'ad', 'org', 'utk', 'dgn', 'sy', 'sm', 'sdh', 'udh', 'blm', 'sbg', 'dr', 'dlm',
     'kpd', 'tsb', 'dll', 'dsb', 'dst', 'yg', 'klo', 'karna', 'ma', 'ama', 'sama'
 ]);
@@ -30,7 +30,8 @@ const POSITIVE_WORDS = new Set([
     'sejuk', 'terbaik', 'professional', 'sopan', 'murah', 'promo', 'diskon', 'terjangkau',
     'menarik', 'ok', 'oke', 'sip', 'jos', 'top', 'asik', 'seru', 'betah', 'recomended',
     'recommended', 'kualitas', 'high', 'premium', 'good', 'nice', 'great', 'excellent',
-    'perfect', 'love', 'like', 'best', 'super', 'juara', 'hebat', 'tolong'
+    'perfect', 'love', 'like', 'best', 'super', 'juara', 'hebat', 'tolong', 'menjelaskan',
+    'menawarkan', 'memberikan', 'sesuai'
 ]);
 
 const NEGATIVE_WORDS = new Set([
@@ -42,7 +43,8 @@ const NEGATIVE_WORDS = new Set([
     'angkuh', 'pelit', 'curang', 'bohong', 'palsu', 'kw', 'tiruan', 'jelek', 'butut',
     'usang', 'kuno', 'jadul', 'norak', 'kampungan', 'ndeso', 'gagal', 'error', 'bug',
     'masalah', 'problem', 'komplain', 'keluhan', 'protes', 'kritik', 'saran', 'masukan',
-    'tolong', 'mohon', 'harap', 'perbaiki', 'tingkatkan', 'ubah', 'ganti'
+    'tolong', 'mohon', 'harap', 'perbaiki', 'tingkatkan', 'ubah', 'ganti',
+    'tidak', 'belum', 'bukan'
 ]);
 
 // Helper to normalize and tokenize text
@@ -64,10 +66,10 @@ function analyzeFeedback(qualitativeList) {
     let neutralCount = 0;
 
     let themes = {
-        'Service': { keywords: ['pelayanan', 'karyawan', 'staff', 'kasir', 'sopan', 'ramah', 'judes', 'senyum', 'salam'], count: 0, sentiment: 0 },
-        'Product': { keywords: ['produk', 'barang', 'stok', 'ukuran', 'size', 'warna', 'model', 'kualitas', 'bahan'], count: 0, sentiment: 0 },
-        'Ambience': { keywords: ['suasana', 'tempat', 'ac', 'dingin', 'panas', 'musik', 'lagu', 'bersih', 'kotator', 'rapi'], count: 0, sentiment: 0 },
-        'Process': { keywords: ['antri', 'bayar', 'transaksi', 'kasir', 'lama', 'cepat', 'ribet', 'mudah'], count: 0, sentiment: 0 }
+        'Service': { keywords: ['pelayanan', 'karyawan', 'staff', 'kasir', 'sopan', 'ramah', 'judes', 'senyum', 'salam'], count: 0, sentiment: 0, wordCounts: {} },
+        'Product': { keywords: ['produk', 'barang', 'stok', 'ukuran', 'size', 'warna', 'model', 'kualitas', 'bahan'], count: 0, sentiment: 0, wordCounts: {} },
+        'Ambience': { keywords: ['suasana', 'tempat', 'ac', 'dingin', 'panas', 'musik', 'lagu', 'bersih', 'kotor', 'rapi'], count: 0, sentiment: 0, wordCounts: {} },
+        'Process': { keywords: ['antri', 'bayar', 'transaksi', 'kasir', 'lama', 'cepat', 'ribet', 'mudah'], count: 0, sentiment: 0, wordCounts: {} }
     };
 
     qualitativeList.forEach(feedback => {
@@ -76,12 +78,14 @@ function analyzeFeedback(qualitativeList) {
         let tokens = tokenize(feedback);
         let feedbackSentiment = 0;
         let mentionedThemes = new Set();
+        let validWords = [];
 
         tokens.forEach(word => {
             // Word Cloud
             if (!STOP_WORDS.has(word)) {
                 wordCounts[word] = (wordCounts[word] || 0) + 1;
                 totalWords++;
+                validWords.push(word);
             }
 
             // Sentiment
@@ -101,10 +105,16 @@ function analyzeFeedback(qualitativeList) {
             }
         });
 
-        // Theme Sentiment Attribution
+        // Theme Sentiment & Word Attribution
         mentionedThemes.forEach(theme => {
             themes[theme].count++;
             themes[theme].sentiment += feedbackSentiment;
+
+            // Add non-stop words to this theme's cloud
+            validWords.forEach(w => {
+                // We allow all valid non-stopwords for context
+                themes[theme].wordCounts[w] = (themes[theme].wordCounts[w] || 0) + 1;
+            });
         });
 
         // Overall Sentiment Classification
@@ -121,7 +131,20 @@ function analyzeFeedback(qualitativeList) {
 
     // Formatting Themes
     let sortedThemes = Object.entries(themes)
-        .map(([name, data]) => ({ name, count: data.count, sentiment: data.sentiment }))
+        .map(([name, data]) => {
+            // Process per-theme top words
+            const topWords = Object.entries(data.wordCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10) // Top 10 associated words
+                .map(([t, c]) => ({ text: t, count: c }));
+
+            return {
+                name,
+                count: data.count,
+                sentiment: data.sentiment,
+                topWords: topWords // Include top words in output
+            };
+        })
         .sort((a, b) => b.count - a.count);
 
     return {

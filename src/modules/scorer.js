@@ -58,6 +58,34 @@ async function processWave(filePath, waveName, year, masterMap) {
             feedbackCandidates.push(lastCol);
         }
 
+        // --- Dialogue Extraction (Customer-RA Interaction) ---
+        const questionCol = headers.find(h => h.includes('759203') && h.includes('Cantumkan hal'));
+        const answerCol = headers.find(h => h.includes('759205') && h.includes('Cantumkan Jawaban'));
+        const memberCol = headers.find(h => h.includes('759565') && h.includes('manfaat member'));
+
+        // Capture Staff Name (Column 759173)
+        const staffNameCol = headers.find(h => h.includes('759173') || h.toLowerCase().includes('nama & foto retail assistant'));
+        if (!staffNameCol) console.log(`[WARN] Staff Name column NOT FOUND for ${siteCode}`);
+        let staffName = (staffNameCol && record[staffNameCol]) ? record[staffNameCol].trim() : null;
+        // Cleanup staff name (remove trailing dots, fix casing if needed)
+        if (staffName) {
+            staffName = staffName.replace(/\.$/, '');
+
+            // Filter Garbage Names
+            const lower = staffName.toLowerCase();
+            if (lower.includes('terlampir') || lower.includes('foto') || lower.length < 3 || lower === 'retail assistant' || lower.includes('unknown') || lower.includes('n/a') || lower.includes('nama & foto')) {
+                staffName = null;
+            }
+            // Capitalize First Letter of each word if it looks like lowercase junk?
+            // Usually CSV has proper names.
+        }
+
+        storeData.dialogue = {
+            customerQuestion: (questionCol && record[questionCol] && record[questionCol].trim().length > 3) ? record[questionCol].trim() : null,
+            raAnswer: (answerCol && record[answerCol] && record[answerCol].trim().length > 3) ? record[answerCol].trim() : null,
+            memberBenefits: (memberCol && record[memberCol] && record[memberCol].trim().length > 3) ? record[memberCol].trim() : null
+        };
+
         const uniqueFeedback = new Set();
         feedbackCandidates.forEach(key => {
             let val = record[key];
@@ -69,23 +97,13 @@ async function processWave(filePath, waveName, year, masterMap) {
                         text: val,
                         sentiment: classified.sentiment,
                         category: classified.themes.length > 0 ? classified.themes[0] : 'General',
-                        themes: classified.themes
+                        themes: classified.themes,
+                        staffName: staffName // Attach identified staff name to this feedback
                     });
                     uniqueFeedback.add(val);
                 }
             }
         });
-
-        // --- Dialogue Extraction (Customer-RA Interaction) ---
-        const questionCol = headers.find(h => h.includes('759203') && h.includes('Cantumkan hal'));
-        const answerCol = headers.find(h => h.includes('759205') && h.includes('Cantumkan Jawaban'));
-        const memberCol = headers.find(h => h.includes('759565') && h.includes('manfaat member'));
-
-        storeData.dialogue = {
-            customerQuestion: (questionCol && record[questionCol] && record[questionCol].trim().length > 3) ? record[questionCol].trim() : null,
-            raAnswer: (answerCol && record[answerCol] && record[answerCol].trim().length > 3) ? record[answerCol].trim() : null,
-            memberBenefits: (memberCol && record[memberCol] && record[memberCol].trim().length > 3) ? record[memberCol].trim() : null
-        };
 
         // Final Score (Source of Truth)
         const finalScoreKey = Object.keys(record).find(k => k === 'Final Score' || k.trim() === 'Final Score');

@@ -1230,6 +1230,18 @@ function renderStoreTable() {
     var br = document.getElementById("storeListBranch").value;
     var cur = sortedWaves[sortedWaves.length - 1];
 
+    // 1. Pre-calculate Global Ranks if not exists
+    if (!reportData.hasCalculatedRanks) {
+        let allStores = Object.values(reportData.stores);
+        allStores.sort((a, b) => {
+            var sa = a.results[cur] ? a.results[cur].totalScore : 0;
+            var sb = b.results[cur] ? b.results[cur].totalScore : 0;
+            return sb - sa;
+        });
+        allStores.forEach((s, i) => s.meta.globalRank = i + 1);
+        reportData.hasCalculatedRanks = true;
+    }
+
     // Filter
     var list = Object.values(reportData.stores).filter(s => {
         var m = s.meta;
@@ -1238,7 +1250,7 @@ function renderStoreTable() {
             (!br || m.branch === br);
     });
 
-    // Sort by Score Descending
+    // Sort by Score Descending (Match Global Rank order basically)
     list.sort((a, b) => {
         var sa = a.results[cur] ? a.results[cur].totalScore : 0;
         var sb = b.results[cur] ? b.results[cur].totalScore : 0;
@@ -1260,7 +1272,7 @@ function renderStoreTable() {
     tbody.innerHTML = "";
 
     pageData.forEach((s, idx) => {
-        var rank = start + idx + 1;
+        var rank = s.meta.globalRank || (start + idx + 1); // Use Global Rank
         var d = s.results[cur];
         var score = d ? d.totalScore : 0;
 
@@ -2155,40 +2167,91 @@ function initVoC() {
         const voc = reportData.voc || [];
         const failureReasons = reportData.failureReasons || [];
 
-        // --- Sentiment Stats ---
+        // --- Stopwords (Indonesian) ---
+        const stopWords = new Set(['yang', 'dan', 'di', 'ke', 'dari', 'ini', 'itu', 'untuk', 'pada', 'adalah', 'dengan', 'saya', 'tidak', 'juga', 'bisa', 'karena', 'akan', 'atau', 'tapi', 'sudah', 'telah', 'bagi', 'para', 'namun', 'apa', 'kami', 'kita', 'mereka', 'dia', 'ia', 'anda', 'kamu', 'aku', 'lagi', 'saat', 'ketika', 'seperti', 'tersebut', 'sangat', 'agar', 'bila', 'jika', 'sebagai', 'oleh', 'saja', 'perlu', 'harus', 'dapat', 'oleh', 'tentang', 'serta', 'menjadi', 'dalam', 'antara', 'dgn', 'yg', 'tdk', 'jd', 'bgt', 'gak', 'kalo', 'tp', 'sm', 'utk', 'kpd', 'krn', 'sy', 'dr', 'blm', 'bs', 'ada', 'tidak', 'tak', 'bukan', 'sangat', 'kurang', 'lebih']);
+
+        // --- Stats & Collectors ---
         let posCount = 0, negCount = 0, neuCount = 0;
-        const wordFreq = {};
+        const wordStats = {}; // { word: { count, sentimentSum, snippets: [] } }
+
+        // Theme Data Aggregation
         const themeData = {
-            'Service': { count: 0, sentiment: 0 },
-            'Product': { count: 0, sentiment: 0 },
-            'Ambience': { count: 0, sentiment: 0 },
-            'Process': { count: 0, sentiment: 0 }
+            'Service': { count: 0, sentiment: 0, feedback: [] },
+            'Product': { count: 0, sentiment: 0, feedback: [] },
+            'Ambience': { count: 0, sentiment: 0, feedback: [] },
+            'Process': { count: 0, sentiment: 0, feedback: [] }
         };
 
+
+        // Regional Data Aggregation
+        const regionStats = {}; // { regionName: { pos: 0, neg: 0, total: 0 } }
+
         voc.forEach(v => {
+            const sentScore = (v.sentiment === 'positive' ? 1 : (v.sentiment === 'negative' ? -1 : 0));
+
+            // 1. General counts
+
             if (v.sentiment === 'positive') posCount++;
             else if (v.sentiment === 'negative') negCount++;
             else neuCount++;
 
-            // Theme counts
+            // 2. Regional Stats
+            if (v.region) {
+                if (!regionStats[v.region]) regionStats[v.region] = { pos: 0, neg: 0, total: 0 };
+                regionStats[v.region].total++;
+                if (v.sentiment === 'positive') regionStats[v.region].pos++;
+                else if (v.sentiment === 'negative') regionStats[v.region].neg++;
+            }
+
+
+
+            // 4. Theme Aggregation (Store ref for modal)
             if (v.themes) {
                 v.themes.forEach(t => {
                     if (themeData[t]) {
                         themeData[t].count++;
-                        themeData[t].sentiment += (v.sentiment === 'positive' ? 1 : (v.sentiment === 'negative' ? -1 : 0));
+                        themeData[t].sentiment += sentScore;
+                        // Store citation for modal (keep lightweight)
+                        if (themeData[t].feedback.length < 50) { // Limit stored feedback to prevent bloat
+                            themeData[t].feedback.push({
+                                text: v.text,
+                                score: sentScore,
+                                site: v.siteName
+                            });
+                        }
                     }
                 });
             }
 
-            // Word frequency
+            // 4. Word Processing (Contextual Snippets)
             if (v.text) {
-                v.text.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).forEach(w => {
-                    if (w.length > 3) wordFreq[w] = (wordFreq[w] || 0) + 1;
+                // Tokenize
+                const words = v.text.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/);
+                const uniqueWordsInText = new Set(words); // Avoid counting same word twice per feedback for frequency? No, strict freq.
+
+                words.forEach(w => {
+                    if (w.length > 3 && !stopWords.has(w)) {
+                        if (!wordStats[w]) wordStats[w] = { count: 0, sentimentSum: 0, snippets: [] };
+                        wordStats[w].count++;
+                        wordStats[w].sentimentSum += sentScore;
+
+                        // Collect snippets (max 5 per word to save memory)
+                        if (wordStats[w].snippets.length < 5) {
+                            // Find snippet window around word
+                            const idx = v.text.toLowerCase().indexOf(w);
+                            if (idx !== -1) {
+                                const start = Math.max(0, idx - 40);
+                                const end = Math.min(v.text.length, idx + 40 + w.length);
+                                const snippet = (start > 0 ? "..." : "") + v.text.substring(start, end) + (end < v.text.length ? "..." : "");
+                                wordStats[w].snippets.push({ text: snippet, site: v.siteName });
+                            }
+                        }
+                    }
                 });
             }
         });
 
-        // Render stats
+        // --- Render General Stats ---
         const vocTotalEl = document.getElementById('vocTotal');
         const vocPosEl = document.getElementById('vocPositive');
         const vocNegEl = document.getElementById('vocNegative');
@@ -2198,31 +2261,154 @@ function initVoC() {
         if (vocNegEl) vocNegEl.textContent = negCount;
         if (vocNeuEl) vocNeuEl.textContent = neuCount;
 
-        // --- Word Cloud ---
+        // --- Render Interactive Word Cloud ---
         const cloudEl = document.getElementById('vocWordCloud');
         if (cloudEl) {
-            const sorted = Object.entries(wordFreq).sort((a, b) => b[1] - a[1]).slice(0, 40);
-            const maxFreq = sorted.length > 0 ? sorted[0][1] : 1;
-            cloudEl.innerHTML = sorted.map(([word, count]) => {
-                const size = Math.max(0.7, (count / maxFreq) * 2.2);
-                const colors = ['#3B82F6', '#6366F1', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#EC4899'];
-                const color = colors[Math.floor(Math.random() * colors.length)];
-                return `<span style="font-size: ${size}rem; color: ${color}; padding: 3px 8px; display: inline-block; font-weight: ${count > 3 ? '700' : '500'}; opacity: ${0.6 + (count / maxFreq) * 0.4};" title="${count} mentions">${word}</span>`;
+            const sortedWords = Object.entries(wordStats)
+                .map(([word, data]) => ({
+                    word,
+                    count: data.count,
+                    avgSentiment: data.count > 0 ? data.sentimentSum / data.count : 0,
+                    snippets: data.snippets
+                }))
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 50);
+
+            const maxFreq = sortedWords.length > 0 ? sortedWords[0].count : 1;
+
+            cloudEl.innerHTML = sortedWords.map((item, index) => {
+                const size = Math.max(0.8, (item.count / maxFreq) * 2.5);
+
+                let color;
+                if (item.avgSentiment > 0.1) color = '#10B981'; // Green
+                else if (item.avgSentiment < -0.1) color = '#EF4444'; // Red
+                else color = '#64748B'; // Slate
+
+                const opacity = 0.5 + (item.count / maxFreq) * 0.5;
+
+                // Encode snippets safely for tooltip
+                // Use &quot; for quotes inside the tooltip attribute content
+                const snippetHtml = item.snippets.length > 0
+                    ? item.snippets.map(s => `&bull; &quot;${s.text.replace(/"/g, '&quot;').replace(/'/g, '&#39;')}&quot;`).join('<br/>')
+                    : 'No context available';
+
+                // We must be very careful with quotes here. 
+                // Using single quotes for the title attribute value to avoid conflict with double quotes in HTML
+                // And ensuring the dynamic content doesn't break out.
+                return `<span class="voc-cloud-word" 
+                    style="font-size: ${size}rem; color: ${color}; padding: 4px 10px; display: inline-block; font-weight: ${item.count > 5 ? '700' : '500'}; opacity: ${opacity}; transition: all 0.2s ease; cursor: pointer; position: relative;" 
+                    data-bs-toggle="tooltip" 
+                    data-bs-html="true" 
+                    title="<div class='text-start small'><strong>${item.count} mentions</strong><br/>${snippetHtml}</div>"
+                    onmouseover="this.style.opacity=1; this.style.transform='scale(1.1)'; this.style.zIndex=10;"
+                    onmouseout="this.style.opacity=${opacity}; this.style.transform='scale(1)'; this.style.zIndex=1;">${item.word}</span>`;
             }).join('');
+
+            // Initialize BS tooltips
+            var tooltipTriggerList = [].slice.call(cloudEl.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
         }
 
-        // --- Theme Table ---
+        // --- Render Interactive Theme Table ---
         const themeEl = document.getElementById('vocThemes');
         if (themeEl) {
+            // Attach data to window for modal access
+            window._vocThemeData = themeData;
+
             themeEl.innerHTML = Object.entries(themeData)
                 .sort((a, b) => b[1].count - a[1].count)
                 .map(([name, data]) => {
-                    const sentLabel = data.sentiment > 0 ? '<span class="text-success">Positive</span>' : (data.sentiment < 0 ? '<span class="text-danger">Negative</span>' : '<span class="text-secondary">Neutral</span>');
-                    return `<tr><td class="fw-bold">${name}</td><td class="text-end">${data.count}</td><td class="text-end">${sentLabel}</td></tr>`;
+                    const sentLabel = data.sentiment > 0 ? '<span class="text-success fw-bold">Positive</span>' :
+                        (data.sentiment < 0 ? '<span class="text-danger fw-bold">Negative</span>' : '<span class="text-secondary">Neutral</span>');
+                    return `<tr style="cursor: pointer;" onclick="showThemeAnalysis('${name}')" class="theme-row-hover">
+                        <td class="fw-bold text-dark"><i class="bi bi-search me-2 text-primary opacity-50"></i>${name}</td>
+                        <td class="text-end fw-bold">${data.count}</td>
+                        <td class="text-end">${sentLabel}</td>
+                    </tr>`;
                 }).join('');
         }
 
-        // --- Failure Pattern Analysis ---
+        // --- Render Regional Map ---
+        const regionEl = document.getElementById('vocRegionalMap');
+        if (regionEl && Object.keys(regionStats).length > 0) {
+            const sortedRegions = Object.entries(regionStats)
+                .map(([name, s]) => ({ name, ...s, percent: s.total > 0 ? (s.pos / s.total) * 100 : 0 }))
+                .sort((a, b) => b.percent - a.percent);
+
+            regionEl.innerHTML = sortedRegions.map(r => {
+                const barColor = r.percent > 60 ? '#10B981' : (r.percent > 40 ? '#F59E0B' : '#EF4444');
+                return `<div class="d-flex align-items-center mb-2">
+                    <div style="width: 120px;" class="small fw-bold text-dark">${r.name}</div>
+                    <div class="flex-grow-1 mx-3">
+                        <div class="progress" style="height: 10px; border-radius: 5px; background: #E2E8F0;">
+                            <div class="progress-bar" role="progressbar" style="width: ${r.percent}%; background-color: ${barColor}; transition: width 1s ease;" aria-valuenow="${r.percent}" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                    </div>
+                    <div style="width: 60px;" class="small fw-bold text-end">${Math.round(r.percent)}% Pos</div>
+                </div>`;
+            }).join('');
+        } else if (regionEl) {
+            regionEl.innerHTML = '<div class="text-muted text-center py-4">No regional data available.</div>';
+        }
+
+        // --- Service Standards Compliance ---
+        // Using aggregated item scores from reportData.summary
+        // We need to fetch the LATEST wave summary
+        const waves = Object.keys(reportData.summary).sort();
+        const latestWave = waves[waves.length - 1];
+        const summaryDetails = reportData.summary[latestWave] ? reportData.summary[latestWave].details : null;
+
+        if (summaryDetails) {
+            // Helper to get average score of a group of codes
+            const getGroupScore = (codes) => {
+                let totalSum = 0;
+                let totalCount = 0;
+
+                // Iterate sections to find codes (since details is grouped by section)
+                Object.values(summaryDetails).forEach(sectionItems => {
+                    Object.entries(sectionItems).forEach(([code, data]) => {
+                        if (codes.includes(code)) {
+                            totalSum += data.sum; // Sum of scores (0 or 100)
+                            totalCount += data.count; // Number of stores/checks
+                        }
+                    });
+                });
+
+                return totalCount > 0 ? (totalSum / totalCount) : 0;
+            };
+
+            // Define Code Groups
+            const welcomeCodes = ['759174', '759175', '759176', '759177']; // Eye, Greeting, Smile, Gesture
+            const sellingCodes = ['759220', '759221', '759206', '759569', '759236']; // Offer Try, Help, Answer, Upsell, Member
+            const closingCodes = ['759267', '759262', '759263', '759287', '759288', '759289']; // Farewell/Gesture/Smile (Cashier & RA)
+
+            const welcomeScore = getGroupScore(welcomeCodes);
+            const sellingScore = getGroupScore(sellingCodes);
+            const closingScore = getGroupScore(closingCodes);
+
+            // Render SVG Progress
+            const setProgress = (id, val) => {
+                const el = document.getElementById('circle' + id);
+                const txt = document.getElementById('val' + id);
+                if (el && txt) {
+                    // stroke-dasharray="current, 100"
+                    // But score is 0-100. stroke-dasharray 100 is full circle (approx 31.83*PI)
+                    // Wait, path length is approx 100.
+                    setTimeout(() => {
+                        el.setAttribute('stroke-dasharray', `${val}, 100`);
+                        txt.innerText = Math.round(val) + '%';
+                    }, 500);
+                }
+            };
+
+            setProgress('Welcome', welcomeScore);
+            setProgress('Selling', sellingScore);
+            setProgress('Closing', closingScore);
+        }
+
+        // --- Failure Pattern Analysis (unchanged) ---
         const patternEl = document.getElementById('vocFailurePatterns');
         if (patternEl && failureReasons.length > 0) {
             // Group by section and count reasons
@@ -2243,12 +2429,9 @@ function initVoC() {
 
             patternEl.innerHTML = sorted.map(([reason, data]) => {
                 const color = sectionColors[data.section] || '#94A3B8';
-                const storeCount = data.stores.size;
                 return `<div class="d-inline-flex align-items-center gap-2 px-3 py-2 rounded-pill shadow-sm" 
                     style="background: ${color}10; border: 1px solid ${color}30; cursor: default; transition: all 0.2s ease;"
-                    onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px ${color}20'"
-                    onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'"
-                    title="Section ${data.section} | Found in ${storeCount} store(s)">
+                    title="Section ${data.section} | Found in ${data.stores.size} store(s)">
                     <span class="badge rounded-circle d-flex align-items-center justify-content-center" 
                         style="width: 22px; height: 22px; background: ${color}; font-size: 0.6rem; color: white;">${data.section}</span>
                     <span class="small fw-medium text-dark" style="font-size: 0.78rem; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${reason}</span>
@@ -2260,6 +2443,173 @@ function initVoC() {
         }
     } catch (err) {
         console.error('VoC init error:', err);
+    }
+}
+
+// --- Helper for Theme Modal ---
+function showThemeAnalysis(theme) {
+    if (!window._vocThemeData || !window._vocThemeData[theme]) return;
+
+    const data = window._vocThemeData[theme];
+    const feedbacks = data.feedback || [];
+
+    // 1. Calculate Statistics
+    const total = feedbacks.length;
+    const positives = feedbacks.filter(f => f.score > 0).sort((a, b) => b.score - a.score);
+    const negatives = feedbacks.filter(f => f.score < 0).sort((a, b) => a.score - b.score);
+    const posPct = total > 0 ? (positives.length / total) * 100 : 0;
+    const negPct = total > 0 ? (negatives.length / total) * 100 : 0;
+
+    // 2. Identify Top Locations for this theme
+    const locCounts = {};
+    feedbacks.forEach(f => {
+        locCounts[f.site] = (locCounts[f.site] || 0) + 1;
+    });
+    const topLocs = Object.entries(locCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+
+    // 3. Update Header & KPI
+    document.getElementById('vocThemeModalTitle').innerText = `${theme}`;
+
+    // Sentiment Bar
+    document.getElementById('barPos').style.width = `${posPct}%`;
+    document.getElementById('barNeg').style.width = `${negPct}%`;
+    document.getElementById('valPos').innerText = `${Math.round(posPct)}% Positive`;
+    document.getElementById('valNeg').innerText = `${Math.round(negPct)}% Negative`;
+
+    // Insight Text
+    let insight = "Mixed sentiment.";
+    if (posPct > 70) insight = "Overwhelmingly positive feedback.";
+    else if (negPct > 40) insight = "Significant area of concern.";
+    else if (posPct > 50) insight = "Generally positive, but room for improvement.";
+    document.getElementById('vocThemeInsight').innerText = insight;
+
+    // Keywords (Use pre-calculated from voc.js)
+    const keywordsEl = document.getElementById('vocThemeKeywords');
+    if (data.topWords && data.topWords.length > 0) {
+        keywordsEl.innerHTML = data.topWords.slice(0, 8).map(w =>
+            `<span class="badge bg-light text-dark border fw-normal px-2 py-1">${w.text}</span>`
+        ).join('');
+    } else {
+        keywordsEl.innerText = "No specific keywords found.";
+    }
+
+    // Top Locations
+    const locEl = document.getElementById('vocThemeLocations');
+    locEl.innerHTML = topLocs.map(([site, count], i) =>
+        `<li class="d-flex justify-content-between align-items-center mb-1">
+            <span class="text-dark fw-medium">${site}</span>
+            <span class="badge bg-secondary bg-opacity-10 text-secondary rounded-pill small">${count}</span>
+        </li>`
+    ).join('');
+
+    // 4. Render Feedback Streams (Chat Bubble Style)
+    const renderList = (list, type) => {
+        if (list.length === 0) return `<div class="text-center text-muted py-5 small"><i>No ${type} feedback available.</i></div>`;
+        const color = type === 'positive' ? 'success' : 'danger';
+        return list.slice(0, 15).map(item => `
+            <div class="d-flex mb-3">
+                <div class="flex-shrink-0">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold" 
+                        style="width: 32px; height: 32px; background-color: var(--bs-${color}); font-size: 12px;">
+                        ${item.score > 0 ? '+' + item.score : item.score}
+                    </div>
+                </div>
+                <div class="flex-grow-1 ms-3">
+                    <div class="bg-white p-3 rounded-4 shadow-sm border border-${color}-subtle" style="border-top-left-radius: 4px !important;">
+                        <p class="mb-1 text-dark small" style="line-height: 1.5;">"${item.text}"</p>
+                        <div class="d-flex justify-content-between align-items-center mt-2">
+                            <span class="badge bg-light text-muted border fw-normal" style="font-size: 0.65rem;">
+                                <i class="bi bi-geo-alt-fill me-1"></i>${item.site || 'Unknown'}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    };
+
+    document.getElementById('vocThemePositive').innerHTML = renderList(positives, 'positive');
+    document.getElementById('vocThemeNegative').innerHTML = renderList(negatives, 'negative');
+
+    // 5. Generate Executive Summary (Narrative Style)
+
+    // 1. Topic Mapping Dictionary (Map raw keywords to readable concepts)
+    const topicMap = {
+        'ramah': 'staff friendliness', 'sopan': 'staff courtesy', 'senyum': 'staff attitude', 'sapa': 'greeting standard',
+        'cepat': 'service speed', 'sigap': 'responsiveness', 'lambat': 'waiting times', 'lama': 'waiting times', 'antri': 'queue management',
+        'panas': 'store temperature', 'gerah': 'store temperature', 'dingin': 'store temperature', 'ac': 'air conditioning',
+        'luas': 'store atmosphere', 'nyaman': 'comfort', 'bersih': 'cleanliness', 'rapi': 'display organization', 'bau': 'store ambiance',
+        'lengkap': 'product variety', 'banyak': 'product choices', 'size': 'size availability', 'ukuran': 'size availability', 'stok': 'stock levels', 'kosong': 'stock availability',
+        'mahal': 'pricing', 'murah': 'value for money', 'diskon': 'promotions', 'promo': 'promotions',
+        'parkir': 'parking facility', 'toilet': 'restroom cleanliness', 'musholla': 'prayer room'
+    };
+
+    // Generic stopwords just in case
+    const stopWords = new Set(['yang', 'dan', 'di', 'ke', 'dari', 'ini', 'itu', 'untuk', 'pada', 'adalah', 'dengan', 'saya', 'tidak', 'juga', 'bisa', 'karena', 'akan', 'atau', 'sudah', 'telah', 'bagi', 'para', 'namun', 'apa', 'kami', 'kita', 'mereka', 'dia', 'ia', 'anda', 'kamu', 'aku', 'lagi', 'saat', 'ketika', 'seperti', 'tersebut', 'sangat', 'agar', 'bila', 'jika', 'sebagai', 'oleh', 'saja', 'perlu', 'harus', 'dapat', 'tentang', 'serta', 'menjadi', 'dalam', 'antara', 'pelayanan', 'produk', 'store', 'eiger', 'retail', 'assistant', 'staff', 'karyawan', 'pramuniaga', 'toko', 'outlet', 'pelanggan', 'customer', 'baju', 'barang', 'kasir', 'trainee', 'leader', 'security', 'satpam']);
+
+    const getTopTopics = (list, excludeTopics = []) => {
+        const counts = {};
+        list.forEach(item => {
+            const words = item.text.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/);
+            words.forEach(w => {
+                if (w.length > 2 && !stopWords.has(w) && !theme.toLowerCase().includes(w)) {
+                    // Check if word maps to a topic
+                    const topic = topicMap[w]; // Use mapped topic if exists
+                    const key = topic ? topic : w; // Fallback to word if meaningful
+
+                    // Only count if it's a known topic OR a common non-stopword > 4 chars
+                    if (topic || (w.length > 4)) {
+                        counts[key] = (counts[key] || 0) + 1;
+                    }
+                }
+            });
+        });
+        // Sort by frequency
+        return Object.entries(counts)
+            .sort((a, b) => b[1] - a[1])
+            .filter(e => !excludeTopics.includes(e[0]))
+            .slice(0, 3)
+            .map(e => e[0]);
+    };
+
+    const topPosTopics = getTopTopics(positives);
+    const topNegTopics = getTopTopics(negatives, topPosTopics);
+
+    let summaryHtml = "";
+    // Construct Narrative Paragraph
+    if (positives.length === 0 && negatives.length === 0) {
+        summaryHtml = "No sufficient feedback data available to generate a narrative summary.";
+    } else {
+        // Positive Sentence
+        if (topPosTopics.length > 0) {
+            const concepts = topPosTopics.map(t => `<b>${t}</b>`).join(', ');
+            summaryHtml += `Based on recent feedback, customers have expressed high satisfaction regarding ${concepts}. `;
+            if (topLocs.length > 0 && posPct > 60) {
+                summaryHtml += `This positive sentiment is particularly strong at <b>${topLocs[0][0]}</b>, which serves as a benchmark for ${topPosTopics[0]}. `;
+            }
+        } else if (posPct > 50) {
+            summaryHtml += "Overall sentiment is positive, though specific drivers of satisfaction vary across different locations. ";
+        }
+
+        // Negative Sentence
+        if (topNegTopics.length > 0) {
+            const issues = topNegTopics.map(t => `<b>${t}</b>`).join(' and ');
+            if (summaryHtml) summaryHtml += "<br><br>"; // Paragraph break
+            summaryHtml += `However, there are recurring concerns regarding ${issues}. Addressing these specific pain points could significantly improve the overall customer experience`;
+            if (topLocs.length > 0 && negatives.length > positives.length) {
+                summaryHtml += `, with immediate attention recommended for <b>${topLocs[0][0]}</b> due to a higher volume of such reports.`;
+            } else {
+                summaryHtml += ".";
+            }
+        }
+
+        if (!summaryHtml) summaryHtml = "Insufficient data to generate a detailed summary.";
+
+        const summaryEl = document.getElementById('vocThemeSummary');
+        if (summaryEl) summaryEl.innerHTML = summaryHtml;
+
+        const modal = new bootstrap.Modal(document.getElementById('vocThemeModal'));
+        modal.show();
     }
 }
 
