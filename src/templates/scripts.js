@@ -168,8 +168,11 @@ function initSummary() {
     renderT(sList.slice(-5).reverse(), "bottomStoresList", false);
 
     // 6. Hierarchy Rankings
-    var regList = Object.keys(reportData.regions).map(r => {
-        var d = reportData.regions[r][cur]; return { n: r, s: d ? d.sum / d.count : 0 };
+    const regList = Object.keys(reportData.regions).map(r => {
+        const regVoc = timeFilteredVocData ? timeFilteredVocData.filter(v => v.region === r) : [];
+        const total = regVoc.length;
+        const d = reportData.regions[r][cur];
+        return { n: r, s: d ? d.sum / d.count : 0, vocCount: total };
     }).sort((a, b) => b.s - a.s);
     var brList = Object.keys(reportData.branches).map(b => {
         var d = reportData.branches[b][cur]; return { n: b, s: d ? d.sum / d.count : 0 };
@@ -2385,7 +2388,7 @@ function showThemeAnalysis(theme) {
         'ramah': 'staff friendliness', 'sopan': 'staff courtesy', 'senyum': 'staff attitude', 'sapa': 'greeting standard',
         'cepat': 'service speed', 'sigap': 'responsiveness', 'lambat': 'waiting times', 'lama': 'waiting times', 'antri': 'queue management',
         'panas': 'store temperature', 'gerah': 'store temperature', 'dingin': 'store temperature', 'ac': 'air conditioning',
-        'luas': 'store atmosphere', 'nyaman': 'comfort', 'bersih': 'cleanliness', 'rapi': 'display organization', 'bau': 'store ambiance',
+        'luas': 'store ambiance', 'nyaman': 'comfort', 'bersih': 'cleanliness', 'rapi': 'display organization', 'bau': 'store ambiance',
         'lengkap': 'product variety', 'banyak': 'product choices', 'size': 'size availability', 'ukuran': 'size availability', 'stok': 'stock levels', 'kosong': 'stock availability',
         'mahal': 'pricing', 'murah': 'value for money', 'diskon': 'promotions', 'promo': 'promotions',
         'parkir': 'parking facility', 'toilet': 'restroom cleanliness', 'musholla': 'prayer room'
@@ -2815,7 +2818,10 @@ function openSectionDetail(sectionName) {
 let currentVocPage = 1;
 const vocPageSize = 12;
 let currentVocFilter = 'all';
-let filteredVocData = [];
+let currentVocTimeFilter = 'all'; // NEW: Global Time Filter
+let timeFilteredVocData = [];     // NEW: Data filtered by time (Source for charts/KPIs)
+let filteredVocData = [];         // DEPRECATED-ISH: Kept for compat, but essentially same as timeFilteredVocData now
+let currentGridData = [];         // Local data strictly for Feedback Explorer tiles
 let vocCategoryData = {}; // { categoryName: count }
 let vocNoteData = [];     // [{ note, count, sample }]
 
@@ -2845,23 +2851,94 @@ function initVoc() {
     }
 
     if (reportData.voc && reportData.voc.length > 0) {
-        filteredVocData = reportData.voc;
+        timeFilteredVocData = reportData.voc; // Default to full data
+        currentGridData = reportData.voc;
     } else {
-        filteredVocData = [];
+        timeFilteredVocData = [];
+        currentGridData = [];
     }
 
+    initVocTimeFilter(); // NEW: Populate time dropdown
     calculateVocStats();
+    renderVocFilters();
     renderVocGrid();
     renderVocKpis();
     renderVocRegionalHeatmap();
     renderVocServiceStandards();
     renderVocCategoryChart();
-    renderVocTrendChart();
+    renderVocActionTiles(); // NEW: Executive Action Tiles
+    renderVocManagerNotes();
+}
+
+function initVocTimeFilter() {
+    const select = document.getElementById('vocTimeFilter');
+    if (!select || !reportData.voc) return;
+
+    // Get unique "Year - Wave" combos
+    const waves = new Set();
+    reportData.voc.forEach(item => {
+        if (item.year && item.wave) {
+            waves.add(`${item.year} - ${item.wave}`);
+        }
+    });
+
+    const sortedWaves = Array.from(waves).sort().reverse(); // Newest first
+
+    let html = '<option value="all">All Time Periods</option>';
+    sortedWaves.forEach(w => {
+        html += `<option value="${w}">${w}</option>`;
+    });
+
+    select.innerHTML = html;
+    select.value = 'all';
+
+    // Add event listener
+    select.onchange = (e) => filterVocByTime(e.target.value);
+}
+
+function filterVocByTime(timeVal) {
+    currentVocTimeFilter = timeVal;
+
+    if (timeVal === 'all') {
+        timeFilteredVocData = reportData.voc;
+    } else {
+        timeFilteredVocData = reportData.voc.filter(item =>
+            `${item.year} - ${item.wave}` === timeVal
+        );
+    }
+
+    // Reset Category Filter when time changes (optional, but safer)
+    currentVocFilter = 'all';
+    const catSelect = document.getElementById('vocCategoryFilter');
+    if (catSelect) catSelect.value = 'all';
+
+    // Update Grid Data Source
+    currentGridData = timeFilteredVocData;
+
+    // Re-Calculate Stats & Re-Render EVERYTHING
+    calculateVocStats();
+    renderVocFilters(); // Re-populate category dropdown based on new time scope?? No, keep global categories? 
+    // Actually better to show categories available in THIS time period.
+    // Let's force re-render of filters.
+    const filterEl = document.getElementById('vocCategoryFilter');
+    if (filterEl) filterEl.innerHTML = ''; // Force clear to trigger re-population in renderVocFilters
+
+    renderVocGrid();
+    renderVocKpis();
+    renderVocRegionalHeatmap();
+    renderVocServiceStandards();
+    renderVocCategoryChart();
+    // renderVocTrendChart(); // Trend chart usually shows ALL time, so maybe don't filter this? 
+    // Actually, user said "dissect results", so maybe we hide trend chart or show only relevant point?
+    // Let's keep Trend Chart GLOBAL for context, or filter it? 
+    // Usually Trend Chart implies time series. If we filter to 1 wave, trend is 1 point.
+    // Let's leave Trend Chart showing ALL data for context, unless user wants otherwise.
+    // Implementing: Trend Chart uses reportData.voc (Global) to show context.
     renderVocManagerNotes();
 }
 
 function renderVocKpis() {
-    const total = reportData.voc ? reportData.voc.length : 0;
+    const total = timeFilteredVocData ? timeFilteredVocData.length : 0;
     const topCat = Object.entries(vocCategoryData).sort((a, b) => b[1] - a[1])[0];
     const topNote = vocNoteData[0];
     const catCount = Object.keys(vocCategoryData).length;
@@ -2944,7 +3021,7 @@ function renderVocManagerNotes() {
     const tbody = document.getElementById('vocManagerNotesBody');
     if (!tbody) return;
 
-    const total = reportData.voc ? reportData.voc.length : 1;
+    const total = timeFilteredVocData ? timeFilteredVocData.length : 1;
     const topNotes = vocNoteData.slice(0, 15);
     const maxCount = topNotes.length > 0 ? topNotes[0].count : 1;
 
@@ -2954,7 +3031,7 @@ function renderVocManagerNotes() {
         const sampleTrunc = item.sample.length > 80 ? item.sample.substring(0, 80) + '…' : item.sample;
 
         return `
-            <tr style="cursor:pointer;" onclick="filterVocGrid('${item.note}')" class="voc-note-row">
+            <tr style="cursor:pointer;" data-note="${item.note}" onclick="filterVocGrid(this.dataset.note)" class="voc-note-row">
                 <td class="ps-4 py-3">
                     <span class="badge rounded-pill fw-bold" style="background: ${i < 3 ? '#1E293B' : '#E2E8F0'}; color: ${i < 3 ? '#fff' : '#475569'}; min-width: 28px;">${i + 1}</span>
                 </td>
@@ -2982,28 +3059,38 @@ function renderVocRegionalHeatmap() {
     const container = document.getElementById("vocRegionalHeatmap");
     if (!container || !reportData.regions) return;
 
-    const regions = Object.keys(reportData.regions).map(r => {
-        const regVoc = reportData.voc ? reportData.voc.filter(v => v.region === r) : [];
-        const total = regVoc.length;
+    // Phase 1: Group all data by region in one pass O(N)
+    const regionsMap = {};
+    Object.keys(reportData.regions).forEach(r => {
+        regionsMap[r] = { total: 0, catCount: {}, noteCount: {} };
+    });
 
-        // Find top category for this region
-        const catCount = {};
-        regVoc.forEach(item => {
-            const topics = item.topics || [];
-            topics.forEach(t => { catCount[t] = (catCount[t] || 0) + 1; });
+    const dataToProcess = timeFilteredVocData || [];
+    dataToProcess.forEach(item => {
+        const r = item.region;
+        if (!r || !regionsMap[r]) return;
+
+        const regObj = regionsMap[r];
+        regObj.total++;
+
+        // Categories
+        (item.topics || []).forEach(t => {
+            regObj.catCount[t] = (regObj.catCount[t] || 0) + 1;
         });
-        const topCat = Object.entries(catCount).sort((a, b) => b[1] - a[1])[0];
 
-        // Find top Manager's Note for this region
-        const noteCount = {};
-        regVoc.forEach(item => {
-            const insight = item.aiInsight || '';
-            const key = insight.includes(':') ? insight.split(':')[0].trim() : insight.trim();
-            if (key && key !== 'N/A') noteCount[key] = (noteCount[key] || 0) + 1;
-        });
-        const topNote = Object.entries(noteCount).sort((a, b) => b[1] - a[1])[0];
+        // Notes
+        const insight = item.aiInsight || '';
+        const key = insight.includes(':') ? insight.split(':')[0].trim() : insight.trim();
+        if (key && key !== 'N/A') {
+            regObj.noteCount[key] = (regObj.noteCount[key] || 0) + 1;
+        }
+    });
 
-        return { name: r, total, topCat, topNote };
+    // Phase 2: Convert Map to sorted array
+    const sortedRegions = Object.entries(regionsMap).map(([name, data]) => {
+        const topCat = Object.entries(data.catCount).sort((a, b) => b[1] - a[1])[0];
+        const topNote = Object.entries(data.noteCount).sort((a, b) => b[1] - a[1])[0];
+        return { name, total: data.total, topCat, topNote };
     }).filter(r => r.total > 0).sort((a, b) => b.total - a.total);
 
     container.innerHTML = `
@@ -3018,7 +3105,7 @@ function renderVocRegionalHeatmap() {
                     </tr>
                 </thead>
                 <tbody>
-                    ${regions.map(r => `
+                    ${sortedRegions.map(r => `
                         <tr>
                             <td class="py-2 ps-3 fw-bold" style="color: #1E293B;">${r.name}</td>
                             <td class="py-2">
@@ -3028,7 +3115,7 @@ function renderVocRegionalHeatmap() {
                                 ${r.topCat ? `<span class="badge rounded-pill px-2 py-1" style="background: ${getVocCatColor(r.topCat[0])}20; color: ${getVocCatColor(r.topCat[0])}; border: 1px solid ${getVocCatColor(r.topCat[0])}40; font-size: 0.75rem;">${r.topCat[0]}</span>` : '<span class="text-muted small">—</span>'}
                             </td>
                             <td class="py-2 pe-3">
-                                ${r.topNote ? `<span class="small fw-medium" style="color: #B45309;"><i class="bi bi-clipboard2-pulse me-1"></i>${r.topNote[0]} <span class="text-muted">(${r.topNote[1]})</span></span>` : '<span class="text-muted small">—</span>'}
+                                ${r.topNote ? `<span class="small fw-medium" style="color: #B45309;"><i class="bi bi-clipboard2-pulse me-1"></i>${r.topNote[0]} <span class="text-muted">(${r.topNote[1]})</span>` : '<span class="text-muted small">—</span>'}
                             </td>
                         </tr>
                     `).join('')}
@@ -3070,40 +3157,56 @@ function filterVocGrid(type) {
     currentVocFilter = type;
     currentVocPage = 1;
 
-    if (!reportData.voc) return;
+    if (!timeFilteredVocData) return;
 
     if (type === 'all') {
-        filteredVocData = reportData.voc;
+        currentGridData = timeFilteredVocData;
     } else {
-        filteredVocData = reportData.voc.filter(item => {
+        currentGridData = timeFilteredVocData.filter(item => {
             const topics = item.topics || item.themes || [];
-            const noteKey = (item.aiInsight || '').includes(':') ? (item.aiInsight || '').split(':')[0].trim() : (item.aiInsight || '').trim();
+            const insight = item.aiInsight || '';
+            const noteKey = insight.includes(':') ? insight.split(':')[0].trim() : insight.trim();
             return topics.includes(type) || noteKey === type;
         });
     }
 
-    const filterEl = document.getElementById('vocCategoryFilter');
-    if (filterEl) {
-        for (let i = 0; i < filterEl.options.length; i++) {
-            if (filterEl.options[i].value === type) {
-                filterEl.selectedIndex = i;
-                break;
-            }
-        }
+    // Sync dropdown UI
+    renderVocFilters(); // NEW: Refresh dropdown if needed
+
+    try {
+        renderVocGrid();
+    } catch (e) {
+        console.error("VoC Filter Error:", e);
+    }
+}
+
+function renderVocFilters() {
+    const select = document.getElementById('vocCategoryFilter');
+    if (!select) return;
+
+    // Only re-render if empty or has just the default option
+    // OR if we want to ensure the correct option is selected
+    if (select.options.length <= 1) {
+        // Use vocCategoryData which is populated by calculateVocStats (but wait, calculateVocStats runs on filtered data?)
+        // YES, we want categories available in the CURRENT TIME VIEW.
+        // calculateVocStats populates global `vocCategoryData` based on `timeFilteredVocData` now.
+
+        const sortedCats = Object.entries(vocCategoryData).sort((a, b) => b[1] - a[1]);
+        let optionsHtml = '<option value="all">All Categories</option>';
+        sortedCats.forEach(([cat, count]) => {
+            optionsHtml += `<option value="${cat}" ${currentVocFilter === cat ? 'selected' : ''}>${cat} (${count})</option>`;
+        });
+        select.innerHTML = optionsHtml;
     }
 
-    calculateVocStats();
-    renderVocGrid();
-    renderVocKpis();
-    renderVocRegionalHeatmap();
-    renderVocServiceStandards();
-    renderVocCategoryChart();
-    renderVocTrendChart();
-    renderVocManagerNotes();
+    // Ensure correct selection state
+    if (select.value !== currentVocFilter) {
+        select.value = currentVocFilter;
+    }
 }
 
 function changeVocPage(delta) {
-    const maxPage = Math.ceil(filteredVocData.length / vocPageSize);
+    const maxPage = Math.ceil(currentGridData.length / vocPageSize);
     const newPage = currentVocPage + delta;
     if (newPage > 0 && newPage <= maxPage) {
         currentVocPage = newPage;
@@ -3120,18 +3223,18 @@ function renderVocGrid() {
 
     const start = (currentVocPage - 1) * vocPageSize;
     const end = start + vocPageSize;
-    const pageData = filteredVocData.slice(start, end);
+    const pageData = currentGridData.slice(start, end);
 
     pageData.forEach((item, index) => {
         const tile = createFeedbackTile(item, index);
         grid.appendChild(tile);
     });
 
-    const maxPage = Math.ceil(filteredVocData.length / vocPageSize);
+    const maxPage = Math.ceil(currentGridData.length / vocPageSize);
     const countEl = document.getElementById("vocGridCount");
     const indicatorEl = document.getElementById("vocPageIndicator");
 
-    if (countEl) countEl.textContent = `Showing ${filteredVocData.length > 0 ? start + 1 : 0}–${Math.min(end, filteredVocData.length)} of ${filteredVocData.length} feedback`;
+    if (countEl) countEl.textContent = `Showing ${currentGridData.length > 0 ? start + 1 : 0}–${Math.min(end, currentGridData.length)} of ${currentGridData.length} feedback`;
     if (indicatorEl) indicatorEl.textContent = `Page ${currentVocPage} of ${maxPage || 1}`;
 
     const prevBtn = document.getElementById("btnVocPrev");
@@ -3224,6 +3327,215 @@ window.onload = function () {
 
 
 // --- TREND ANALYSIS ---
+// --- REPLACED BY ACTION TILES ---
+function renderVocActionTiles() {
+    const container = document.getElementById('vocActionTiles');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    // 1. Get Top 3 Categories from Current Time Scope
+    // We already have vocCategoryData populated by calculateVocStats based on timeFilteredVocData
+    const topCategories = Object.entries(vocCategoryData)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3);
+
+    if (topCategories.length === 0) {
+        container.innerHTML = '<div class="col-12 text-center text-muted p-4">No sufficient data for action plan.</div>';
+        return;
+    }
+
+    const totalVolume = timeFilteredVocData.length || 1;
+
+    // 2. Render Cards
+    topCategories.forEach(([cat, count], index) => {
+        const percentage = Math.round((count / totalVolume) * 100);
+        const color = getVocCatColor(cat);
+        const bgLight = color + '15'; // 10% opacity
+
+        // Find Top Manager Note for this category
+        const catItems = timeFilteredVocData.filter(i => (i.topics || []).includes(cat));
+        const noteCounts = {};
+        catItems.forEach(item => {
+            const insight = item.aiInsight || '';
+            const key = insight.includes(':') ? insight.split(':')[0].trim() : insight.trim();
+            if (key && key !== 'N/A') noteCounts[key] = (noteCounts[key] || 0) + 1;
+        });
+        const topNoteEntry = Object.entries(noteCounts).sort((a, b) => b[1] - a[1])[0];
+        const topNote = topNoteEntry ? topNoteEntry[0] : "General Improvement";
+
+        const card = document.createElement('div');
+        card.className = "col-12";
+        card.innerHTML = `
+            <div class="card h-100 border-0 shadow-sm animate-entry ps-2" style="background: linear-gradient(to right, #ffffff, #f8fafc); border-left: 4px solid ${color} !important; border-radius: 8px;">
+                <div class="card-body py-3 px-4 d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center" 
+                             style="width: 48px; height: 48px; background: ${bgLight}; color: ${color}; flex-shrink: 0;">
+                            <span class="fw-bold fs-5">${index + 1}</span>
+                        </div>
+                        <div>
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <h6 class="fw-bold text-dark mb-0">${cat}</h6>
+                                <span class="badge rounded-pill text-dark bg-light border">${percentage}% Impact</span>
+                            </div>
+                            <div class="text-muted small" style="font-size: 0.85rem;">
+                                Priority: <span class="fw-bold text-dark">${topNote}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                         <button class="btn btn-sm btn-white border shadow-sm text-secondary rounded-pill px-3" 
+                            onclick="openVocActionPlan('${cat}')">
+                            View Briefing <i class="bi bi-arrow-right ms-1"></i>
+                         </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+}
+
+// --- NEW: INTERACTIVE ACTION PLAN MODAL (High Density Situation Report) ---
+const MANAGER_ACTION_MAP = {
+    "Proactive Engagement": "Implement mandatory 'Active Greeting' at entrance. Proactively offer to hold items at cashier for hands-free shopping.",
+    "Staffing Level": "Review peak hour schedules. Activate 'All Hands on Deck' protocol when queue exceeds 3 customers.",
+    "Hygiene Standard": "Conduct hourly restroom checks. Ensure sanitation logs are signed by Store Head / PIC visible to customers.",
+    "Product Availability": "Check warehouse inventory vs display. Restock 'Fast Moving' SKUs every 4 hours.",
+    "Service Speed": "Retrain cashier on POS shortcuts. Open backup counter immediately if transaction time > 2 mins.",
+    "Product Knowledge": "Schedule 15-min 'Product Briefing' before shift. Focus on new arrivals and USP explanations.",
+    "Ambience": "Adjust lighting and temperature (24°C). Ensure playlist volume is balanced for conversation.",
+    "Queue Management": "Deploy mobile POS or queue buster. Manager must step in to pack items during rush.",
+    "Fitting Room": "Clear clothes from cabins immediately after use. Check mirror cleanliness every 30 mins."
+};
+
+function openVocActionPlan(category) {
+    const modal = new bootstrap.Modal(document.getElementById('vocActionPlanModal'));
+
+    // 1. Data Prep
+    const catItems = timeFilteredVocData.filter(i => (i.topics || []).includes(category));
+    const totalVol = timeFilteredVocData.length || 1;
+    const catVol = catItems.length;
+    const percentage = ((catVol / totalVol) * 100).toFixed(1);
+
+    // 2. Aggregate Manager Notes (Top 3)
+    const noteCounts = {};
+    catItems.forEach(item => {
+        const insight = item.aiInsight || '';
+        const key = insight.includes(':') ? insight.split(':')[0].trim() : insight.trim();
+        if (key && key !== 'N/A') noteCounts[key] = (noteCounts[key] || 0) + 1;
+    });
+    const topNotes = Object.entries(noteCounts)
+        .sort((a, b) => b[1] - a[1]) // Sort desc
+        .slice(0, 3); // Top 3
+
+    // 3. Regional Hotspots (Top 3 Regions)
+    const regCounts = {};
+    catItems.forEach(item => {
+        if (item.region) regCounts[item.region] = (regCounts[item.region] || 0) + 1;
+    });
+    // Show ALL regions (no slice)
+    const topRegions = Object.entries(regCounts).sort((a, b) => b[1] - a[1]);
+    const maxRegVal = topRegions.length > 0 ? topRegions[0][1] : 1;
+
+    // 4. Branch Watchlist (Top 7 Branches)
+    const branchCounts = {};
+    catItems.forEach(item => {
+        if (item.branch) {
+            branchCounts[item.branch] = (branchCounts[item.branch] || 0) + 1;
+        }
+    });
+    const topBranches = Object.entries(branchCounts).sort((a, b) => b[1] - a[1]).slice(0, 7);
+
+    // 5. Extract Sample Voices (Longest text)
+    const voices = catItems
+        .filter(i => i.text && i.text.length > 20)
+        .sort((a, b) => b.text.length - a.text.length)
+        .slice(0, 4);
+
+    // --- POPULATE UI ---
+    document.getElementById('vocActionPlanCat').textContent = category;
+    document.getElementById('vocActionPlanImpact').textContent = `${percentage}% of Total Issues`;
+    document.getElementById('vocActionPlanShare').textContent = `${percentage}%`;
+    document.getElementById('vocActionPlanVolume').textContent = catVol.toLocaleString();
+
+    // Mandates
+    const mandatesContainer = document.getElementById('vocActionPlanMandates');
+    mandatesContainer.innerHTML = topNotes.map((n, i) => {
+        const actionText = MANAGER_ACTION_MAP[n[0]] || "Review operational procedures and conduct retraining for this specific issue.";
+        return `
+        <div class="d-flex gap-3">
+            <div class="rounded-circle bg-white shadow-sm border d-flex align-items-center justify-content-center text-primary fw-bold"
+                 style="width: 36px; height: 36px; flex-shrink: 0; font-size: 1.1rem;">${i + 1}</div>
+            <div class="flex-grow-1">
+                <h6 class="fw-bold text-dark mb-1" style="font-size: 0.95rem;">${n[0]}</h6>
+                <div class="small text-secondary mb-2 fst-italic border-start border-3 border-primary ps-2 bg-light py-1 rounded-end"
+                     style="font-size: 0.85rem;">
+                     "${actionText}"
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <div class="progress flex-grow-1" style="height: 6px; background: #e2e8f0; border-radius: 4px;">
+                        <div class="progress-bar bg-primary" style="width: ${Math.min(100, (n[1] / catVol) * 100 * 1.5)}%; border-radius: 4px;"></div>
+                    </div>
+                    <span class="text-muted xsmall fw-bold">${n[1]} cases</span>
+                </div>
+            </div>
+        </div>
+    `;
+    }).join('');
+
+    // Voices
+    const voicesContainer = document.getElementById('vocActionPlanVoices');
+    if (voices.length > 0) {
+        voicesContainer.innerHTML = voices.map(v => `
+            <div class="voice-card bg-white p-3 rounded-3 shadow-sm border border-light h-100 d-flex flex-column" onclick="this.classList.toggle('expanded')">
+                <i class="bi bi-quote text-primary opacity-25 display-6 mb-n3"></i>
+                <div class="voice-text text-dark small fst-italic mt-2 mb-2 flex-grow-1" style="font-size: 0.85rem; line-height: 1.5;">"${v.text}"</div>
+                <div class="text-end text-muted xsmall fw-bold border-top pt-2 mt-auto d-flex justify-content-between align-items-center">
+                    <span class="text-primary opacity-50 xsmall fst-normal"><i class="bi bi-arrows-expand me-1"></i>Click to expand</span>
+                    <span>${v.siteName || v.store_name || v.siteCode || 'Store'}</span>
+                </div>
+            </div>
+        `).join('');
+    } else {
+        voicesContainer.innerHTML = '<div class="text-muted small fst-italic col-span-2">No specific comments available.</div>';
+    }
+
+    // Regional Hotspots
+    const regionsContainer = document.getElementById('vocActionPlanRegions');
+    regionsContainer.innerHTML = regionsContainer ? topRegions.map(r => `
+        <div class="mb-2">
+            <div class="d-flex align-items-center justify-content-between xsmall mb-1">
+                <span class="fw-bold text-dark w-50 text-truncate">${r[0]}</span>
+                <span class="text-muted">${r[1]}</span>
+            </div>
+            <div class="progress" style="height: 6px; background: #f1f5f9; border-radius: 4px;">
+                <div class="progress-bar bg-warning" style="width: ${(r[1] / maxRegVal) * 100}%; border-radius: 4px;"></div>
+            </div>
+        </div>
+    `).join('') : '';
+
+    // Branch Watchlist
+    const storesContainer = document.getElementById('vocActionPlanStores');
+    if (storesContainer) {
+        if (topBranches.length > 0) {
+            storesContainer.innerHTML = topBranches.map(s => `
+                <tr>
+                    <td class="ps-3 border-0 py-2">
+                        <div class="fw-bold text-dark xsmall">${s[0]}</div>
+                    </td>
+                    <td class="text-end pe-3 border-0 py-2 fw-bold text-danger xsmall">${s[1]}</td>
+                </tr>
+            `).join('');
+        } else {
+            storesContainer.innerHTML = '<tr><td colspan="2" class="text-center text-muted xsmall py-3">No specific branch data</td></tr>';
+        }
+    }
+
+    modal.show();
+}
+// function renderVocTrendChart() { ... } // DEPRECATED
 function renderVocTrendChart() {
     const container = document.getElementById('vocTrendChart');
     if (!container) return;
@@ -3354,8 +3666,16 @@ function updateDrilldownBreadcrumb(level) {
 
 function renderVocDrilldownRegions() {
     updateDrilldownBreadcrumb('region');
-    document.getElementById('vocDrilldownChart').classList.remove('d-none');
-    document.getElementById('vocDrilldownTableContainer').classList.add('d-none');
+    const chart = document.getElementById('vocDrilldownChart');
+    const cardGrid = document.getElementById('vocDrilldownCardGrid');
+    const table = document.getElementById('vocDrilldownTableContainer');
+
+    if (chart) chart.classList.add('d-none');
+    if (table) table.classList.add('d-none');
+    if (cardGrid) {
+        cardGrid.classList.remove('d-none');
+        cardGrid.innerHTML = '';
+    }
 
     // Filter by Category
     const catData = reportData.voc.filter(item => {
@@ -3373,58 +3693,28 @@ function renderVocDrilldownRegions() {
     renderVocDrilldownStats(catData, 'region');
 
     const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-    const x = sorted.map(k => k[0]);
-    const y = sorted.map(k => k[1]);
 
-    const data = [{
-        x: x,
-        y: y,
-        type: 'bar',
-        marker: {
-            color: '#4F46E5', // Premium Indigo
-            line: { width: 0 },
-            opacity: 0.9
-        },
-        hoverinfo: 'x+y',
-        name: 'Volume'
-    }];
-
-    const layout = {
-        font: { family: 'Outfit, sans-serif' },
-        title: {
-            text: 'Feedback Volume by Region (' + currentDrillCategory + ')',
-            font: { size: 16, weight: 'bold', color: '#1e293b' },
-            pad: { b: 20 }
-        },
-        margin: { t: 60, l: 50, r: 30, b: 100 },
-        xaxis: {
-            tickangle: -45,
-            showgrid: false,
-            tickfont: { size: 11, color: '#64748b' }
-        },
-        yaxis: {
-            gridcolor: '#f1f5f9',
-            tickfont: { size: 11, color: '#64748b' }
-        },
-        paper_bgcolor: 'rgba(0,0,0,0)',
-        plot_bgcolor: 'rgba(0,0,0,0)',
-        showlegend: false
-    };
-
-    Plotly.newPlot('vocDrilldownChart', data, layout, { responsive: true, displayModeBar: false }).then(() => {
-        document.getElementById('vocDrilldownChart').on('plotly_click', data => {
-            if (data.points && data.points.length > 0) {
-                currentDrillRegion = data.points[0].x;
-                renderVocDrilldownBranches(currentDrillRegion);
-            }
-        });
+    sorted.forEach(([region, count], idx) => {
+        const card = createBreakdownCard(region, count, 'region', () => {
+            currentDrillRegion = region;
+            renderVocDrilldownBranches(region);
+        }, idx);
+        cardGrid.appendChild(card);
     });
 }
 
 function renderVocDrilldownBranches(region) {
     updateDrilldownBreadcrumb('branch');
-    document.getElementById('vocDrilldownChart').classList.remove('d-none');
-    document.getElementById('vocDrilldownTableContainer').classList.add('d-none');
+    const chart = document.getElementById('vocDrilldownChart');
+    const cardGrid = document.getElementById('vocDrilldownCardGrid');
+    const table = document.getElementById('vocDrilldownTableContainer');
+
+    if (chart) chart.classList.add('d-none');
+    if (table) table.classList.add('d-none');
+    if (cardGrid) {
+        cardGrid.classList.remove('d-none');
+        cardGrid.innerHTML = '';
+    }
 
     // Filter by Category AND Region
     const branchData = reportData.voc.filter(item => {
@@ -3442,52 +3732,75 @@ function renderVocDrilldownBranches(region) {
     renderVocDrilldownStats(branchData, 'branch');
 
     const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-    const x = sorted.map(k => k[0]);
-    const y = sorted.map(k => k[1]);
 
-    const data = [{
-        x: x,
-        y: y,
-        type: 'bar',
-        marker: {
-            color: '#10B981', // Premium Emerald
-            line: { width: 0 },
-            opacity: 0.9
-        },
-        hoverinfo: 'x+y',
-        name: 'Volume'
-    }];
+    sorted.forEach(([branch, count], idx) => {
+        const card = createBreakdownCard(branch, count, 'branch', () => {
+            renderVocDrilldownStoreTable(branch);
+        }, idx);
+        cardGrid.appendChild(card);
+    });
+}
 
-    const layout = {
-        font: { family: 'Outfit, sans-serif' },
-        title: {
-            text: 'Feedback Volume by Branch (' + region + ')',
-            font: { size: 16, weight: 'bold', color: '#1e293b' },
-            pad: { b: 20 }
-        },
-        margin: { t: 60, l: 50, r: 30, b: 100 },
-        xaxis: {
-            tickangle: -45,
-            showgrid: false,
-            tickfont: { size: 11, color: '#64748b' }
-        },
-        yaxis: {
-            gridcolor: '#f1f5f9',
-            tickfont: { size: 11, color: '#64748b' }
-        },
-        paper_bgcolor: 'rgba(0,0,0,0)',
-        plot_bgcolor: 'rgba(0,0,0,0)',
-        showlegend: false
+function createBreakdownCard(label, value, type, onClick, index) {
+    const col = document.createElement('div');
+    col.className = 'col-md-6 col-lg-4 animate-entry';
+    col.style.animationDelay = (index * 100) + 'ms';
+
+    const icon = type === 'region' ? 'bi-geo-alt' : 'bi-building';
+    const accent = type === 'region' ? '#4F46E5' : '#10B981';
+
+    col.innerHTML = `
+        <div class="card h-100 border-0 breakdown-nav-card p-4 transition" 
+             style="border-radius: 20px; cursor: pointer; transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); background: #F8FAFC; border-left: 4px solid ${accent} !important; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+            <div class="d-flex align-items-center gap-3">
+                <div class="rounded-circle d-flex align-items-center justify-content-center" 
+                     style="width: 50px; height: 50px; background: white; min-width: 50px; border: 1px solid ${accent}20;">
+                    <i class="bi ${icon}" style="color: ${accent}; font-size: 1.25rem;"></i>
+                </div>
+                <div class="flex-grow-1 min-w-0">
+                    <div class="text-muted text-uppercase fw-bold xsmall mb-1 tracking-wider" style="font-size: 0.6rem; opacity: 0.8;">${type} Explorer</div>
+                    <h5 class="fw-bold mb-0 text-dark text-truncate" style="font-family: 'Outfit', sans-serif; font-size: 1.05rem;">${label}</h5>
+                </div>
+                <div class="text-end">
+                    <div class="h3 fw-bold mb-0" style="color: #1E293B; line-height: 1;">${value}</div>
+                    <div class="text-muted" style="font-size: 0.65rem; font-weight: 600; text-uppercase;">Feedbacks</div>
+                </div>
+            </div>
+            <div class="mt-3 pt-3 d-flex align-items-center justify-content-between border-top" style="border-top: 1px solid rgba(0,0,0,0.03) !important;">
+                <span class="badge rounded-pill px-3 py-1 bg-white text-primary border fw-bold" style="font-size: 0.6rem; letter-spacing: 0.3px;">OPEN DRILLDOWN</span>
+                <div class="rounded-circle bg-white shadow-sm d-flex align-items-center justify-content-center" style="width: 28px; height: 28px; border: 1px solid rgba(0,0,0,0.05);">
+                    <i class="bi bi-chevron-right text-primary" style="font-size: 0.8rem;"></i>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const cardContent = col.querySelector('.card');
+
+    // Proper event handling
+    cardContent.addEventListener('click', function () {
+        this.style.transform = 'scale(0.95)';
+        this.style.opacity = '0.7';
+        setTimeout(() => {
+            this.style.transform = '';
+            this.style.opacity = '';
+            onClick();
+        }, 150);
+    });
+
+    // Premium hover effects
+    cardContent.onmouseenter = () => {
+        cardContent.style.transform = 'translateY(-5px)';
+        cardContent.style.background = 'white';
+        cardContent.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)';
+    };
+    cardContent.onmouseleave = () => {
+        cardContent.style.transform = 'translateY(0)';
+        cardContent.style.background = '#F8FAFC';
+        cardContent.style.boxShadow = '0 4px 6px -1px rgba(0,0,0,0.05)';
     };
 
-    Plotly.newPlot('vocDrilldownChart', data, layout, { responsive: true, displayModeBar: false }).then(() => {
-        document.getElementById('vocDrilldownChart').on('plotly_click', data => {
-            if (data.points && data.points.length > 0) {
-                const branch = data.points[0].x;
-                renderVocDrilldownStoreTable(branch);
-            }
-        });
-    });
+    return col;
 }
 
 // NEW: Drilldown Pagination Globals
@@ -3505,8 +3818,9 @@ function changeDrillPage(delta) {
 }
 
 function renderVocDrilldownStoreTable(branch) {
-    // Hide Chart, Show Table
+    // Hide Chart and Cards, Show Table
     document.getElementById('vocDrilldownChart').classList.add('d-none');
+    document.getElementById('vocDrilldownCardGrid').classList.add('d-none');
     document.getElementById('vocDrilldownTableContainer').classList.remove('d-none');
     document.getElementById('vocDrilldownTableContainer').classList.add('animate-entry');
 
@@ -3600,11 +3914,11 @@ function renderDrillTablePage() {
 function calculateVocStats() {
     // Reset global data containers
     vocCategoryData = {};
-    const noteCounts = {};
+    const noteCounts = {}; // Key: noteKey, Value: { count: number, sample: string }
 
-    if (!filteredVocData) return;
+    if (!timeFilteredVocData) return;
 
-    filteredVocData.forEach(item => {
+    timeFilteredVocData.forEach(item => {
         // 1. Categories
         const topics = item.topics || item.themes || [];
         topics.forEach(t => {
@@ -3613,18 +3927,30 @@ function calculateVocStats() {
 
         // 2. Manager Notes (Extract key from AI Insight)
         let noteKey = null;
+        let noteBody = '';
         if (item.aiInsight && item.aiInsight !== 'N/A') {
-            // Logic: If contains ':', take first part. Else take whole string.
-            noteKey = (item.aiInsight || '').includes(':') ? (item.aiInsight || '').split(':')[0].trim() : (item.aiInsight || '').trim();
+            const hasColon = item.aiInsight.includes(':');
+            noteKey = hasColon ? item.aiInsight.split(':')[0].trim() : item.aiInsight.trim();
+            noteBody = hasColon ? item.aiInsight.split(':').slice(1).join(':').trim() : item.aiInsight;
         }
 
         if (noteKey) {
-            noteCounts[noteKey] = (noteCounts[noteKey] || 0) + 1;
+            if (!noteCounts[noteKey]) {
+                noteCounts[noteKey] = {
+                    count: 0,
+                    sample: noteBody || item.text || ''
+                };
+            }
+            noteCounts[noteKey].count++;
         }
     });
 
     // Convert notes object to sorted array for the table
     vocNoteData = Object.entries(noteCounts)
-        .map(([note, count]) => ({ note, count }))
+        .map(([note, data]) => ({
+            note: note,
+            count: data.count,
+            sample: data.sample
+        }))
         .sort((a, b) => b.count - a.count);
 }
