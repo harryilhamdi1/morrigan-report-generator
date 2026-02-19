@@ -46,17 +46,65 @@ async function processWave(filePath, waveName, year, masterMap) {
 
         if (storeData.region === 'CLOSED' || storeData.branch === 'CLOSED') return;
 
-        // Feedback Collection
+        // Identify Qualitative Text Columns by VALUE pattern (not header name)
+        // Skip metadata columns and detect real free-text observations
         const headers = Object.keys(record);
-        const lastCol = headers[headers.length - 1];
+        const metaColPrefixes = ['Review number', 'Site Code', 'Site Name', 'Branch', 'Regional', 'Final Score'];
+        const scorePatterns = [
+            /^(Yes|No)\s*\(/i,            // "Yes (100.00)" or "No (0.00)"
+            /^\d+[\.,]\d+\s*\(/i,          // "100.00 (1/1)"
+            /^\(\d+\/\d+\)/i,             // "(1/1)"
+            /^\d+[\.,]\d+$/,              // Pure numbers like "100.00" or "62.50"
+            /^N\/A$/i,                     // N/A
+        ];
+        const isSectionCol = (h) => h.startsWith('(Section)');
+        const isMetaCol = (h) => metaColPrefixes.some(m => h.includes(m));
 
-        // Identify Potential Columns (Explicit IDs + Last Column as requested)
-        const feedbackCandidates = headers.filter(k => k.includes('759291') || k.toLowerCase().includes('informasikan hal-hal'));
+        // Columns to exclude from qualitative (staff name, cashier name, dialogue - handled separately)
+        const dialogueColIds = ['759203', '759205', '759565'];
+        const staffNameColIds = ['759173', '759246']; // RA name, Cashier name
 
-        // Ensure last column is included (User Request for Wave 3 2025)
-        if (lastCol && !feedbackCandidates.includes(lastCol)) {
-            feedbackCandidates.push(lastCol);
-        }
+        // NEW: Junk Data Columns to explicitly ignore
+        const junkColIds = [
+            '759151', // Lokasi Store (Address)
+            '759245', // Metode Pembayaran (Payment)
+            '760132', // Periode Visit
+            '760133', // Jadwal Visit
+            '759264'  // Waktu Transaksi (3 menit)
+        ];
+
+        const isExcludedCol = (h) => {
+            return dialogueColIds.some(id => h.includes(id)) ||
+                staffNameColIds.some(id => h.includes(id)) ||
+                junkColIds.some(id => h.includes(id));
+        };
+
+        // Garbage text filters (not real qualitative feedback)
+        const isGarbageText = (val) => {
+            const lower = val.toLowerCase();
+            // 1. Filter out staff photo references, timestamps
+            if (lower.includes('foto terlampir')) return true;
+
+            // 2. Filter out Payment Methods & Store Metadata
+            if (/^(?:kartu kredit|debit|tunai|cash|qris|e-?\s*wallet)/i.test(lower)) return true;
+            if (lower.includes(' / ') && (lower.includes('debit') || lower.includes('kredit'))) return true; // "Kartu Kredit / Debit"
+            if (lower.includes('st eg ol')) return true; // Store Codes
+
+            // 3. Filter out Addresses
+            if (/(?:jl\.|jalan)\s+/i.test(lower) && /\d+/.test(lower)) return true; // "Jl. Kemanggisan... No. 1B"
+            if (/rt\s*\d|rw\s*\d/i.test(lower)) return true; // "Rt 4-5"
+            if (/kec\.|kel\.|kab\.|kota /i.test(lower)) return true;
+
+            // 4. Filter out technical metadata
+            if (/^\d+\s*(menit|detik|jam)\.?$/i.test(val)) return true;  // "3 menit."
+            if (/^\d+\s*(retail|pelanggan|orang)/i.test(val)) return true;  // "4 Pelanggan"
+            if (/^(weekday|weekend)\s*\(/i.test(val)) return true;  // "Weekend (Sabtu & Minggu)"
+
+            // 5. Filter out selection-based answers that are just category picks with scores
+            if (/\(\d+[\.,]\d+\)$/.test(val.trim())) return true; // e.g. "Menawarkan produk lain... (100.00)"
+
+            return false;
+        };
 
         // --- Dialogue Extraction (Customer-RA Interaction) ---
         const questionCol = headers.find(h => h.includes('759203') && h.includes('Cantumkan hal'));
@@ -65,19 +113,13 @@ async function processWave(filePath, waveName, year, masterMap) {
 
         // Capture Staff Name (Column 759173)
         const staffNameCol = headers.find(h => h.includes('759173') || h.toLowerCase().includes('nama & foto retail assistant'));
-        if (!staffNameCol) console.log(`[WARN] Staff Name column NOT FOUND for ${siteCode}`);
         let staffName = (staffNameCol && record[staffNameCol]) ? record[staffNameCol].trim() : null;
-        // Cleanup staff name (remove trailing dots, fix casing if needed)
         if (staffName) {
             staffName = staffName.replace(/\.$/, '');
-
-            // Filter Garbage Names
             const lower = staffName.toLowerCase();
             if (lower.includes('terlampir') || lower.includes('foto') || lower.length < 3 || lower === 'retail assistant' || lower.includes('unknown') || lower.includes('n/a') || lower.includes('nama & foto')) {
                 staffName = null;
             }
-            // Capitalize First Letter of each word if it looks like lowercase junk?
-            // Usually CSV has proper names.
         }
 
         storeData.dialogue = {
@@ -87,21 +129,37 @@ async function processWave(filePath, waveName, year, masterMap) {
         };
 
         const uniqueFeedback = new Set();
-        feedbackCandidates.forEach(key => {
-            let val = record[key];
-            if (val && typeof val === 'string' && val.length > 5) {
-                val = val.trim();
-                if (!uniqueFeedback.has(val)) {
-                    const classified = classifySingle(val);
-                    storeData.qualitative.push({
-                        text: val,
-                        sentiment: classified.sentiment,
-                        category: classified.themes.length > 0 ? classified.themes[0] : 'General',
-                        themes: classified.themes,
-                        staffName: staffName // Attach identified staff name to this feedback
-                    });
-                    uniqueFeedback.add(val);
-                }
+        headers.forEach(key => {
+            // Skip non-content columns
+            if (isMetaCol(key) || isSectionCol(key) || isExcludedCol(key)) return;
+
+            let val = (record[key] || '').trim();
+            if (!val || val.length < 10) return;  // Must be at least 10 chars for meaningful text
+
+            // Skip if value matches a score pattern
+            if (scorePatterns.some(p => p.test(val))) return;
+
+            // Skip garbage text
+            if (isGarbageText(val)) return;
+
+            // At this point, val is likely a qualitative observation
+            if (!uniqueFeedback.has(val)) {
+                const classified = classifySingle(val);
+
+                // Determine the context/section from the column header
+                let sourceContext = 'General';
+                const headerMatch = key.match(/\)\s*(.+?)(?:\s*-\s*Text|\s*\(|$)/);
+                if (headerMatch) sourceContext = headerMatch[1].substring(0, 60).trim();
+
+                storeData.qualitative.push({
+                    text: val,
+                    sentiment: classified.sentiment,
+                    category: classified.themes.length > 0 ? classified.themes[0] : sourceContext,
+                    themes: classified.themes,
+                    staffName: staffName, // Attach identified staff name to this feedback
+                    sourceColumn: key.substring(0, 80) // For debugging
+                });
+                uniqueFeedback.add(val);
             }
         });
 

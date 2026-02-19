@@ -1,11 +1,14 @@
 const fs = require('fs').promises;
 const path = require('path');
+const zlib = require('zlib'); // ADDED: Zlib for server-side compression
 const WAVES = require('./config/waves');
 const ACTION_PLANS_MAP = require('./config/action_plans');
 const { THRESHOLD_SCORE } = require('./config/scoring');
 const { loadMasterData, loadSectionWeights } = require('./modules/data_loader');
-const { processWave } = require('./modules/scorer');
+const { processWave, processVoc } = require('./modules/scorer');
 const { buildHierarchy } = require('./modules/aggregator');
+const { generateInsights } = require('./modules/voc'); // Import Rule-Based Insight Generator
+const { processAllFeedbackWithAI } = require('./modules/ai_voc'); // Import AI Insight Generator
 
 // Paths
 const BASE_DIR = path.resolve(__dirname, '..');
@@ -46,6 +49,15 @@ async function main() {
     const { hierarchy, allQualitative, allFailureReasons } = buildHierarchy(allStoreData, WAVES);
     console.log(`    > Hierarchy built. Stores: ${Object.keys(hierarchy.stores).length}, Regions: ${Object.keys(hierarchy.regions).length}`);
 
+    // 3b. Local VoC Enrichment (Internal Cache-Only)
+    console.log("   Enriching VoC with Local Cache...");
+    let finalVocData = await processAllFeedbackWithAI(allQualitative);
+
+    // Always use rule-based narrative for the header, 
+    // but the individual feedback cards will have enriched data from cache.
+    console.log("   Generating Smart Insights (Rule-Based Narrative)...");
+    let vocInsights = generateInsights(finalVocData);
+
     // 4. Construct Final JSON Payload
     const reportData = {
         meta: { generatedAt: new Date().toISOString() },
@@ -55,18 +67,21 @@ async function main() {
         stores: hierarchy.stores,
         threshold: THRESHOLD_SCORE,
         actionPlanConfig: ACTION_PLANS_MAP,
-        // Calculate VoC Stats for the JSON payload to be used by initVoC if needed, 
-        // OR we can just pass raw feedbacks if we want client-side processing. 
-        // For now, let's pass a simplified VoC summary if the client script needs it, 
-        // but looking at scripts.js it seems to handle qualitative inside store details.
-        // We might want to pass global VoC stats here if the dashboard needs it.
-        // Let's stick to what the original script did or what our new templates expect.
-        voc: allQualitative,
+        actionPlanConfig: ACTION_PLANS_MAP,
+        voc: finalVocData, // Use Enriched Data (AI or Raw)
+        vocInsights: vocInsights, // Add Insights to Payload
         failureReasons: allFailureReasons
     };
 
     const jsonStr = JSON.stringify(reportData);
-    console.log(`    > JSON payload size: ${jsonStr.length} characters`);
+    console.log(`    > Raw JSON size: ${(jsonStr.length / 1024 / 1024).toFixed(2)} MB`);
+
+    // COMPRESSION STEP
+    console.log("   Compressing Data...");
+    const buffer = Buffer.from(jsonStr, 'utf-8');
+    const compressed = zlib.deflateSync(buffer);
+    const b64 = compressed.toString('base64');
+    console.log(`    > Compressed size: ${(b64.length / 1024 / 1024).toFixed(2)} MB`);
 
     // 5. Load & Assemble Templates
     console.log("   Assembling HTML...");
@@ -78,25 +93,29 @@ async function main() {
     const tplVoC = await loadTemplate('voc.html');
     const tplScripts = await loadTemplate('scripts.js');
 
+    // Load Fflate Library from node_modules (UMD build is browser compatible)
+    const fflateLib = await fs.readFile(path.join(BASE_DIR, 'node_modules/fflate/umd/index.js'), 'utf8');
+
     // Combine Tabs
     const combinedContent = tplDash + '\n' + tplReg + '\n' + tplBranch + '\n' + tplStore + '\n' + tplVoC;
 
     let finalHTML = tplBase;
-    console.log(`    > Placeholder index: ${finalHTML.indexOf('{{REPORT_DATA_JSON}}')}`);
+    console.log(`    > Placeholder index for Data: ${finalHTML.indexOf('{{REPORT_DATA_B64}}')}`);
 
     // 6. Injection
     finalHTML = finalHTML
         .replace(/\{\s*\{\s*CONTENT\s*\}\s*\}/, () => combinedContent)
-        .replace(/\{\s*\{\s*REPORT_DATA_JSON\s*\}\s*\}/, () => jsonStr)
+        .replace(/\{\s*\{\s*REPORT_DATA_B64\s*\}\s*\}/, () => b64) // Inject Compressed Data
+        .replace(/\{\s*\{\s*FFLATE_LIB\s*\}\s*\}/, () => fflateLib) // Inject Library
         .replace(/\{\s*\{\s*SCRIPTS\s*\}\s*\}/, () => tplScripts)
         .replace(/\{\s*\{\s*GENERATED_DATE\s*\}\s*\}/, () => new Date().toLocaleDateString('en-GB'))
         .replace(/\{\s*\{\s*THRESHOLD\s*\}\s*\}/, () => THRESHOLD_SCORE);
 
-    console.log(`    > Final HTML size: ${finalHTML.length} characters`);
+    console.log(`    > Final HTML size: ${(finalHTML.length / 1024 / 1024).toFixed(2)} MB`);
 
     // 7. Write Output
     await fs.writeFile(OUTPUT_FILE, finalHTML);
-    console.log(`✅ Build Complete! Output: ${OUTPUT_FILE}`);
+    console.log(`✅ Build Complete using Compression! Output: ${OUTPUT_FILE}`);
 }
 
 main().catch(err => {

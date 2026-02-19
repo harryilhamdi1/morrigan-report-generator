@@ -1257,8 +1257,14 @@ function initStoreTable() {
     // Populate Region Filter
     var regSel = document.getElementById("storeListRegion");
     if (!regSel) return;
+
+    // Clear existing options to prevent duplicates if called multiple times
+    regSel.innerHTML = '<option value="">All Regions</option>';
+
     var regs = Object.keys(reportData.regions).sort();
     regs.forEach(r => { var opt = document.createElement("option"); opt.value = r; opt.textContent = r; regSel.appendChild(opt); });
+
+    // Force render on init
     renderStoreTable();
 }
 
@@ -1286,79 +1292,104 @@ function resetStoreFilters() {
     renderStoreTable();
 }
 
-function renderStoreTable() {
-    var search = document.getElementById("storeListSearch").value.toLowerCase();
-    var reg = document.getElementById("storeListRegion").value;
-    var br = document.getElementById("storeListBranch").value;
-    var cur = sortedWaves[sortedWaves.length - 1];
+// Global sort state
+let currentSort = { column: 'score', dir: 'desc' };
 
-    // 1. Pre-calculate Global Ranks if not exists
+function renderStoreTable() {
+    const listBody = document.getElementById('storeMasterBody');
+    const search = document.getElementById('storeListSearch').value.toLowerCase();
+    const regionFilter = document.getElementById('storeListRegion').value;
+    const branchFilter = document.getElementById('storeListBranch').value;
+    const cur = sortedWaves[sortedWaves.length - 1];
+
+    if (!window._storeData) {
+        window._storeData = Object.values(reportData.stores);
+    }
+
+    // 1. Pre-calculate Global Ranks if not exists (for default sort)
     if (!reportData.hasCalculatedRanks) {
-        let allStores = Object.values(reportData.stores);
-        allStores.sort((a, b) => {
+        window._storeData.sort((a, b) => {
             var sa = a.results[cur] ? a.results[cur].totalScore : 0;
             var sb = b.results[cur] ? b.results[cur].totalScore : 0;
             return sb - sa;
         });
-        allStores.forEach((s, i) => s.meta.globalRank = i + 1);
+        window._storeData.forEach((s, i) => s.meta.globalRank = i + 1);
         reportData.hasCalculatedRanks = true;
     }
 
-    // Filter
-    var list = Object.values(reportData.stores).filter(s => {
-        var m = s.meta;
-        return (m.name.toLowerCase().includes(search) || m.code.includes(search)) &&
-            (!reg || m.region === reg) &&
-            (!br || m.branch === br);
+    let filtered = window._storeData.filter(s => {
+        const matchSearch = (s.meta.name.toLowerCase().includes(search) || s.meta.code.includes(search));
+        const matchRegion = regionFilter === "" || s.meta.region === regionFilter;
+        const matchBranch = branchFilter === "" || s.meta.branch === branchFilter;
+        return matchSearch && matchRegion && matchBranch;
     });
 
-    // Sort by Score Descending (Match Global Rank order basically)
-    list.sort((a, b) => {
-        var sa = a.results[cur] ? a.results[cur].totalScore : 0;
-        var sb = b.results[cur] ? b.results[cur].totalScore : 0;
-        return sb - sa;
+    // Apply Sorting
+    filtered.sort((a, b) => {
+        let valA, valB;
+        if (currentSort.column === 'score') {
+            // Get latest total score
+            const lastWaveA = Object.keys(a.results).sort().pop();
+            const lastWaveB = Object.keys(b.results).sort().pop();
+            valA = (a.results[lastWaveA] ? a.results[lastWaveA].totalScore : 0) || 0;
+            valB = (b.results[lastWaveB] ? b.results[lastWaveB].totalScore : 0) || 0;
+        } else if (currentSort.column === 'name') {
+            valA = a.meta.name.toLowerCase();
+            valB = b.meta.name.toLowerCase();
+        } else if (currentSort.column === 'rank') {
+            valA = a.meta.globalRank || 999999;
+            valB = b.meta.globalRank || 999999;
+        }
+
+        if (valA < valB) return currentSort.dir === 'asc' ? -1 : 1;
+        if (valA > valB) return currentSort.dir === 'asc' ? 1 : -1;
+        return 0;
     });
 
-    storeListState.total = list.length;
-    storeListState.filteredData = list;
 
-    // Pagination
-    var totalPages = Math.ceil(list.length / storeListState.limit);
-    if (storeListState.page > totalPages) storeListState.page = totalPages || 1;
+    document.getElementById('storeListCount').textContent = `Showing ${filtered.length} stores`;
 
-    var start = (storeListState.page - 1) * storeListState.limit;
-    var end = start + storeListState.limit;
-    var pageData = list.slice(start, end);
+    if (filtered.length === 0) {
+        listBody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">No stores found.</td></tr>`;
+        return;
+    }
 
-    var tbody = document.getElementById("storeMasterBody");
-    tbody.innerHTML = "";
+    // Pagination (Simple 100 items for now)
+    const pageData = filtered.slice(0, 100);
 
+    let html = "";
     pageData.forEach((s, idx) => {
-        var rank = s.meta.globalRank || (start + idx + 1); // Use Global Rank
-        var d = s.results[cur];
-        var score = d ? d.totalScore : 0;
+        const sortedWaves = Object.keys(s.results).sort();
+        const lastWave = sortedWaves[sortedWaves.length - 1];
+        const lastScore = s.results[lastWave] ? s.results[lastWave].totalScore : 0;
 
-        // Luxury Badge Logic
-        var scoreBadge = "";
-        if (score < 84) scoreBadge = `<span class="badge bg-danger rounded-pill px-3" > ${score.toFixed(2)}</span> `;
-        else if (score >= 95) scoreBadge = `<span class="badge bg-success rounded-pill px-3" > ${score.toFixed(2)}</span> `;
-        else scoreBadge = `<span class="fw-bold text-dark" > ${score.toFixed(2)}</span> `;
+        // Rank relative to filtered list
+        const rank = idx + 1;
 
-        var row = `<tr >
-            <td class="ps-4 fw-bold text-secondary">#${rank}</td>
-            <td><span class="badge bg-light text-dark border">${s.meta.code}</span></td>
-            <td><div class="fw-bold text-dark">${s.meta.name}</div></td>
-            <td><span class="badge bg-soft-primary text-primary-custom border-0">${s.meta.branch}</span></td>
-            <td><span class="small text-secondary fw-bold text-uppercase">${s.meta.region}</span></td>
-            <td class="text-end text-dark">${scoreBadge}</td>
+        html += `
+        <tr onclick="viewStore('${s.meta.code}')" style="cursor:pointer;">
+            <td class="ps-4 fw-bold text-muted">#${rank}</td>
+            <td class="small font-monospace">${s.meta.code}</td>
+            <td class="fw-bold text-primary-custom">${s.meta.name}</td>
+            <td><span class="badge bg-light text-dark border">${s.meta.branch}</span></td>
+            <td><span class="badge bg-light text-secondary border">${s.meta.region}</span></td>
+            <td class="text-end fw-bold" style="font-size:1.1rem;">${lastScore.toFixed(2)}</td>
             <td class="text-center">
-                <button class="btn btn-sm btn-outline-primary rounded-pill px-3" onclick="viewStore('${s.meta.code}')">See Details</button>
+                <button class="btn btn-sm btn-outline-primary rounded-pill px-3" onclick="viewStore('${s.meta.code}'); event.stopPropagation();">View</button>
             </td>
-        </tr> `;
-        tbody.innerHTML += row;
+        </tr>`;
     });
+    listBody.innerHTML = html;
+}
 
-    document.getElementById("storeListCount").textContent = `Showing ${start + 1} -${Math.min(end, list.length)} of ${list.length} stores`;
+function sortStoreTable(col) {
+    if (currentSort.column === col) {
+        currentSort.dir = currentSort.dir === 'asc' ? 'desc' : 'asc';
+    } else {
+        currentSort.column = col;
+        currentSort.dir = 'desc'; // Default new sort to desc (usually better for scores)
+    }
+    renderStoreTable();
 }
 
 function changePage(dir) {
@@ -1714,40 +1745,36 @@ function loadStoreDetail(idOverride) {
     // 5. Render Performance Insights (New)
     renderPerformanceInsights(insightData);
 
-    // 6. Qualitative Feedback (Upgraded with Sentiment & Themes)
+    // 6. Qualitative Feedback (All Waves)
     var fbList = document.getElementById("stFeedback"); fbList.innerHTML = "";
     window._currentFeedbackData = []; // Store for filtering
 
-    if (cur.qualitative && cur.qualitative.length > 0) {
-        let posCount = 0, negCount = 0, neuCount = 0;
-        window._currentFeedbackData = cur.qualitative;
+    // Aggregate feedback from ALL waves (most recent first)
+    let feedbackData = [];
+    const feedbackWaves = [...sortedWaves].reverse(); // Most recent first
+    feedbackWaves.forEach(waveKey => {
+        if (s.results[waveKey] && s.results[waveKey].qualitative) {
+            const waveFeedback = s.results[waveKey].qualitative.map(q => ({ ...q, wave: waveKey }));
+            feedbackData = feedbackData.concat(waveFeedback);
+        }
+    });
 
-        cur.qualitative.forEach(q => {
+    if (feedbackData.length > 0) {
+        let posCount = 0, negCount = 0, neuCount = 0;
+        window._currentFeedbackData = feedbackData;
+
+        feedbackData.forEach(q => {
             if (q.sentiment === 'positive') posCount++;
             else if (q.sentiment === 'negative') negCount++;
             else neuCount++;
         });
 
-        const total = cur.qualitative.length;
+        const total = feedbackData.length;
         document.getElementById('stFeedbackCount').textContent = total;
-        document.getElementById('stSentPosCount').textContent = posCount;
-        document.getElementById('stSentNeuCount').textContent = neuCount;
-        document.getElementById('stSentNegCount').textContent = negCount;
 
-        // Sentiment bar widths
-        document.getElementById('stSentBarPos').style.width = (posCount / total * 100) + '%';
-        document.getElementById('stSentBarNeu').style.width = (neuCount / total * 100) + '%';
-        document.getElementById('stSentBarNeg').style.width = (negCount / total * 100) + '%';
-
-        renderFeedbackCards(cur.qualitative);
+        renderFeedbackCards(feedbackData);
     } else {
         document.getElementById('stFeedbackCount').textContent = '0';
-        document.getElementById('stSentPosCount').textContent = '0';
-        document.getElementById('stSentNeuCount').textContent = '0';
-        document.getElementById('stSentNegCount').textContent = '0';
-        document.getElementById('stSentBarPos').style.width = '0%';
-        document.getElementById('stSentBarNeu').style.width = '0%';
-        document.getElementById('stSentBarNeg').style.width = '0%';
         fbList.innerHTML = "<div class='text-center text-muted py-4 small'>No feedback recorded</div>";
     }
 
@@ -1810,33 +1837,67 @@ function renderFeedbackCards(feedbackList) {
     var fbList = document.getElementById("stFeedback");
     fbList.innerHTML = "";
 
-    feedbackList.forEach(q => {
-        const sentimentConfig = {
-            positive: { icon: '🟢', label: 'Positive', border: '#10B981', bg: 'rgba(16,185,129,0.06)' },
-            negative: { icon: '🔴', label: 'Negative', border: '#EF4444', bg: 'rgba(239,68,68,0.06)' },
-            neutral: { icon: '⚪', label: 'Neutral', border: '#94A3B8', bg: 'rgba(148,163,184,0.06)' }
-        };
-        const sc = sentimentConfig[q.sentiment] || sentimentConfig.neutral;
+    if (!feedbackList || feedbackList.length === 0) {
+        fbList.innerHTML = "<div class='text-center text-muted py-5 col-12'>No feedback matches your filter.</div>";
+        return;
+    }
 
-        // Theme pills
-        const themePills = (q.themes && q.themes.length > 0)
-            ? q.themes.map(t => {
-                const themeColors = {
-                    'Service': '#6366F1', 'Product': '#F59E0B',
-                    'Ambience': '#10B981', 'Process': '#3B82F6'
-                };
-                return `<span class="badge rounded-pill me-1" style="background: ${themeColors[t] || '#94A3B8'}20; color: ${themeColors[t] || '#94A3B8'}; font-size: 0.6rem; font-weight: 600;">${t}</span>`;
-            }).join('')
-            : `<span class="badge rounded-pill" style="background: #F1F5F9; color: #94A3B8; font-size: 0.6rem;">General</span>`;
+    // Masonry Layout via CSS Columns (handled in HTML style="column-count: 2")
+    // We just append cards directly
+    const html = feedbackList.map(item => createFeedbackCard(item)).join('');
+    fbList.innerHTML = html;
+}
 
-        fbList.innerHTML += `<div class="p-3 rounded-3 shadow-sm" data-sentiment="${q.sentiment}" style="background: ${sc.bg}; border-left: 3px solid ${sc.border}; transition: all 0.3s ease;">
+function createFeedbackCard(item) {
+    let sentimentColor = '#94A3B8'; // Neutral (Slate)
+    let sentimentBg = '#F1F5F9';
+    let sentimentIcon = '⚪';
+    let sentimentLabel = 'Neutral';
+
+    if (item.sentiment === 'positive') {
+        sentimentColor = '#10B981'; // Emerald
+        sentimentBg = '#ECFDF5';
+        sentimentIcon = '🟢';
+        sentimentLabel = 'Positive';
+    } else if (item.sentiment === 'negative') {
+        sentimentColor = '#EF4444'; // Red
+        sentimentBg = '#FEF2F2';
+        sentimentIcon = '🔴';
+        sentimentLabel = 'Negative';
+    }
+
+    // Highlights logic (if available in item.themes)
+    let highlights = '';
+    if (item.themes && item.themes.length > 0) {
+        highlights = item.themes.map(t => `<span class="badge rounded-pill bg-light text-dark border me-1" style="font-size: 0.65rem; font-weight: normal;">${t}</span>`).join('');
+    }
+
+    // Clean text (remove redundant quotes if present)
+    let text = item.text ? item.text.replace(/^"|"$/g, '') : "";
+
+    // Wave Badge
+    let waveBadge = item.wave ? `<span class="badge bg-light text-muted border ms-auto" style="font-size: 0.65rem;">${item.wave}</span>` : '';
+
+    return `
+    <div class="card border-0 shadow-sm mb-3 feedback-card-item" style="break-inside: avoid; background: white; border-radius: 12px; transition: transform 0.2s;">
+        <div class="card-body p-3">
             <div class="d-flex justify-content-between align-items-center mb-2">
-                <div>${themePills}</div>
-                <span style="font-size: 0.65rem; font-weight: 600; color: ${sc.border};">${sc.icon} ${sc.label}</span>
+                <div class="d-flex align-items-center gap-2 w-100">
+                    <span class="badge rounded-pill" style="background-color: ${sentimentBg}; color: ${sentimentColor}; border: 1px solid ${sentimentColor}20;">
+                        ${sentimentIcon} ${sentimentLabel}
+                    </span>
+                    ${highlights}
+                    ${waveBadge}
+                </div>
             </div>
-            <p class="mb-0 small text-dark" style="line-height: 1.5; font-size: 0.82rem;">"${q.text}"</p>
-        </div>`;
-    });
+            <p class="mb-0 text-dark" style="font-size: 0.9rem; line-height: 1.5; font-style: italic;">
+                "${text}"
+            </p>
+             <div class="mt-2 d-flex justify-content-end">
+                <small class="text-muted" style="font-size: 0.7rem;">Verified Customer ${item.staffName ? `• Served by <strong>${item.staffName}</strong>` : ''}</small>
+            </div>
+        </div>
+    </div>`;
 }
 
 function filterFeedback(filter, btn) {
@@ -2224,291 +2285,14 @@ function showFailureDetails(section, failedItems, fixedItems) {
 }
 
 
-// --- VoC Tab Initialization ---
-function initVoC() {
-    try {
-        const voc = reportData.voc || [];
-        const failureReasons = reportData.failureReasons || [];
-
-        // --- Stopwords (Indonesian) ---
-        const stopWords = new Set(['yang', 'dan', 'di', 'ke', 'dari', 'ini', 'itu', 'untuk', 'pada', 'adalah', 'dengan', 'saya', 'tidak', 'juga', 'bisa', 'karena', 'akan', 'atau', 'tapi', 'sudah', 'telah', 'bagi', 'para', 'namun', 'apa', 'kami', 'kita', 'mereka', 'dia', 'ia', 'anda', 'kamu', 'aku', 'lagi', 'saat', 'ketika', 'seperti', 'tersebut', 'sangat', 'agar', 'bila', 'jika', 'sebagai', 'oleh', 'saja', 'perlu', 'harus', 'dapat', 'oleh', 'tentang', 'serta', 'menjadi', 'dalam', 'antara', 'dgn', 'yg', 'tdk', 'jd', 'bgt', 'gak', 'kalo', 'tp', 'sm', 'utk', 'kpd', 'krn', 'sy', 'dr', 'blm', 'bs', 'ada', 'tidak', 'tak', 'bukan', 'sangat', 'kurang', 'lebih']);
-
-        // --- Stats & Collectors ---
-        let posCount = 0, negCount = 0, neuCount = 0;
-        const wordStats = {}; // { word: { count, sentimentSum, snippets: [] } }
-
-        // Theme Data Aggregation
-        const themeData = {
-            'Service': { count: 0, sentiment: 0, feedback: [] },
-            'Product': { count: 0, sentiment: 0, feedback: [] },
-            'Ambience': { count: 0, sentiment: 0, feedback: [] },
-            'Process': { count: 0, sentiment: 0, feedback: [] }
-        };
-
-
-        // Regional Data Aggregation
-        const regionStats = {}; // { regionName: { pos: 0, neg: 0, total: 0 } }
-
-        voc.forEach(v => {
-            const sentScore = (v.sentiment === 'positive' ? 1 : (v.sentiment === 'negative' ? -1 : 0));
-
-            // 1. General counts
-
-            if (v.sentiment === 'positive') posCount++;
-            else if (v.sentiment === 'negative') negCount++;
-            else neuCount++;
-
-            // 2. Regional Stats
-            if (v.region) {
-                if (!regionStats[v.region]) regionStats[v.region] = { pos: 0, neg: 0, total: 0 };
-                regionStats[v.region].total++;
-                if (v.sentiment === 'positive') regionStats[v.region].pos++;
-                else if (v.sentiment === 'negative') regionStats[v.region].neg++;
-            }
+// --- VoC Tab (Legacy initVoC removed — see new initVoc() in VOC REVAMP MODULE below) ---
 
 
 
-            // 4. Theme Aggregation (Store ref for modal)
-            if (v.themes) {
-                v.themes.forEach(t => {
-                    if (themeData[t]) {
-                        themeData[t].count++;
-                        themeData[t].sentiment += sentScore;
-                        // Store citation for modal (keep lightweight)
-                        if (themeData[t].feedback.length < 50) { // Limit stored feedback to prevent bloat
-                            themeData[t].feedback.push({
-                                text: v.text,
-                                score: sentScore,
-                                site: v.siteName
-                            });
-                        }
-                    }
-                });
-            }
 
-            // 4. Word Processing (Contextual Snippets)
-            if (v.text) {
-                // Tokenize
-                const words = v.text.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/);
-                const uniqueWordsInText = new Set(words); // Avoid counting same word twice per feedback for frequency? No, strict freq.
 
-                words.forEach(w => {
-                    if (w.length > 3 && !stopWords.has(w)) {
-                        if (!wordStats[w]) wordStats[w] = { count: 0, sentimentSum: 0, snippets: [] };
-                        wordStats[w].count++;
-                        wordStats[w].sentimentSum += sentScore;
 
-                        // Collect snippets (max 5 per word to save memory)
-                        if (wordStats[w].snippets.length < 5) {
-                            // Find snippet window around word
-                            const idx = v.text.toLowerCase().indexOf(w);
-                            if (idx !== -1) {
-                                const start = Math.max(0, idx - 40);
-                                const end = Math.min(v.text.length, idx + 40 + w.length);
-                                const snippet = (start > 0 ? "..." : "") + v.text.substring(start, end) + (end < v.text.length ? "..." : "");
-                                wordStats[w].snippets.push({ text: snippet, site: v.siteName });
-                            }
-                        }
-                    }
-                });
-            }
-        });
-
-        // --- Render General Stats ---
-        const vocTotalEl = document.getElementById('vocTotal');
-        const vocPosEl = document.getElementById('vocPositive');
-        const vocNegEl = document.getElementById('vocNegative');
-        const vocNeuEl = document.getElementById('vocNeutral');
-        if (vocTotalEl) vocTotalEl.textContent = voc.length;
-        if (vocPosEl) vocPosEl.textContent = posCount;
-        if (vocNegEl) vocNegEl.textContent = negCount;
-        if (vocNeuEl) vocNeuEl.textContent = neuCount;
-
-        // --- Render Interactive Word Cloud ---
-        const cloudEl = document.getElementById('vocWordCloud');
-        if (cloudEl) {
-            const sortedWords = Object.entries(wordStats)
-                .map(([word, data]) => ({
-                    word,
-                    count: data.count,
-                    avgSentiment: data.count > 0 ? data.sentimentSum / data.count : 0,
-                    snippets: data.snippets
-                }))
-                .sort((a, b) => b.count - a.count)
-                .slice(0, 50);
-
-            const maxFreq = sortedWords.length > 0 ? sortedWords[0].count : 1;
-
-            cloudEl.innerHTML = sortedWords.map((item, index) => {
-                const size = Math.max(0.8, (item.count / maxFreq) * 2.5);
-
-                let color;
-                if (item.avgSentiment > 0.1) color = '#10B981'; // Green
-                else if (item.avgSentiment < -0.1) color = '#EF4444'; // Red
-                else color = '#64748B'; // Slate
-
-                const opacity = 0.5 + (item.count / maxFreq) * 0.5;
-
-                // Encode snippets safely for tooltip
-                // Use &quot; for quotes inside the tooltip attribute content
-                const snippetHtml = item.snippets.length > 0
-                    ? item.snippets.map(s => `&bull; &quot;${s.text.replace(/"/g, '&quot;').replace(/'/g, '&#39;')}&quot;`).join('<br/>')
-                    : 'No context available';
-
-                // We must be very careful with quotes here. 
-                // Using single quotes for the title attribute value to avoid conflict with double quotes in HTML
-                // And ensuring the dynamic content doesn't break out.
-                return `<span class="voc-cloud-word" 
-                    style="font-size: ${size}rem; color: ${color}; padding: 4px 10px; display: inline-block; font-weight: ${item.count > 5 ? '700' : '500'}; opacity: ${opacity}; transition: all 0.2s ease; cursor: pointer; position: relative;" 
-                    data-bs-toggle="tooltip" 
-                    data-bs-html="true" 
-                    title="<div class='text-start small'><strong>${item.count} mentions</strong><br/>${snippetHtml}</div>"
-                    onmouseover="this.style.opacity=1; this.style.transform='scale(1.1)'; this.style.zIndex=10;"
-                    onmouseout="this.style.opacity=${opacity}; this.style.transform='scale(1)'; this.style.zIndex=1;">${item.word}</span>`;
-            }).join('');
-
-            // Initialize BS tooltips
-            var tooltipTriggerList = [].slice.call(cloudEl.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl);
-            });
-        }
-
-        // --- Render Interactive Theme Table ---
-        const themeEl = document.getElementById('vocThemes');
-        if (themeEl) {
-            // Attach data to window for modal access
-            window._vocThemeData = themeData;
-
-            themeEl.innerHTML = Object.entries(themeData)
-                .sort((a, b) => b[1].count - a[1].count)
-                .map(([name, data]) => {
-                    const sentLabel = data.sentiment > 0 ? '<span class="text-success fw-bold">Positive</span>' :
-                        (data.sentiment < 0 ? '<span class="text-danger fw-bold">Negative</span>' : '<span class="text-secondary">Neutral</span>');
-                    return `<tr style="cursor: pointer;" onclick="showThemeAnalysis('${name}')" class="theme-row-hover">
-                        <td class="fw-bold text-dark"><i class="bi bi-search me-2 text-primary opacity-50"></i>${name}</td>
-                        <td class="text-end fw-bold">${data.count}</td>
-                        <td class="text-end">${sentLabel}</td>
-                    </tr>`;
-                }).join('');
-        }
-
-        // --- Render Regional Map ---
-        const regionEl = document.getElementById('vocRegionalMap');
-        if (regionEl && Object.keys(regionStats).length > 0) {
-            const sortedRegions = Object.entries(regionStats)
-                .map(([name, s]) => ({ name, ...s, percent: s.total > 0 ? (s.pos / s.total) * 100 : 0 }))
-                .sort((a, b) => b.percent - a.percent);
-
-            regionEl.innerHTML = sortedRegions.map(r => {
-                const barColor = r.percent > 60 ? '#10B981' : (r.percent > 40 ? '#F59E0B' : '#EF4444');
-                return `<div class="d-flex align-items-center mb-2">
-                    <div style="width: 120px;" class="small fw-bold text-dark">${r.name}</div>
-                    <div class="flex-grow-1 mx-3">
-                        <div class="progress" style="height: 10px; border-radius: 5px; background: #E2E8F0;">
-                            <div class="progress-bar" role="progressbar" style="width: ${r.percent}%; background-color: ${barColor}; transition: width 1s ease;" aria-valuenow="${r.percent}" aria-valuemin="0" aria-valuemax="100"></div>
-                        </div>
-                    </div>
-                    <div style="width: 60px;" class="small fw-bold text-end">${Math.round(r.percent)}% Pos</div>
-                </div>`;
-            }).join('');
-        } else if (regionEl) {
-            regionEl.innerHTML = '<div class="text-muted text-center py-4">No regional data available.</div>';
-        }
-
-        // --- Service Standards Compliance ---
-        // Using aggregated item scores from reportData.summary
-        // We need to fetch the LATEST wave summary
-        const waves = Object.keys(reportData.summary).sort();
-        const latestWave = waves[waves.length - 1];
-        const summaryDetails = reportData.summary[latestWave] ? reportData.summary[latestWave].details : null;
-
-        if (summaryDetails) {
-            // Helper to get average score of a group of codes
-            const getGroupScore = (codes) => {
-                let totalSum = 0;
-                let totalCount = 0;
-
-                // Iterate sections to find codes (since details is grouped by section)
-                Object.values(summaryDetails).forEach(sectionItems => {
-                    Object.entries(sectionItems).forEach(([code, data]) => {
-                        if (codes.includes(code)) {
-                            totalSum += data.sum; // Sum of scores (0 or 100)
-                            totalCount += data.count; // Number of stores/checks
-                        }
-                    });
-                });
-
-                return totalCount > 0 ? (totalSum / totalCount) : 0;
-            };
-
-            // Define Code Groups
-            const welcomeCodes = ['759174', '759175', '759176', '759177']; // Eye, Greeting, Smile, Gesture
-            const sellingCodes = ['759220', '759221', '759206', '759569', '759236']; // Offer Try, Help, Answer, Upsell, Member
-            const closingCodes = ['759267', '759262', '759263', '759287', '759288', '759289']; // Farewell/Gesture/Smile (Cashier & RA)
-
-            const welcomeScore = getGroupScore(welcomeCodes);
-            const sellingScore = getGroupScore(sellingCodes);
-            const closingScore = getGroupScore(closingCodes);
-
-            // Render SVG Progress
-            const setProgress = (id, val) => {
-                const el = document.getElementById('circle' + id);
-                const txt = document.getElementById('val' + id);
-                if (el && txt) {
-                    // stroke-dasharray="current, 100"
-                    // But score is 0-100. stroke-dasharray 100 is full circle (approx 31.83*PI)
-                    // Wait, path length is approx 100.
-                    setTimeout(() => {
-                        el.setAttribute('stroke-dasharray', `${val}, 100`);
-                        txt.innerText = Math.round(val) + '%';
-                    }, 500);
-                }
-            };
-
-            setProgress('Welcome', welcomeScore);
-            setProgress('Selling', sellingScore);
-            setProgress('Closing', closingScore);
-        }
-
-        // --- Failure Pattern Analysis (unchanged) ---
-        const patternEl = document.getElementById('vocFailurePatterns');
-        if (patternEl && failureReasons.length > 0) {
-            // Group by section and count reasons
-            const reasonCounts = {};
-            failureReasons.forEach(fr => {
-                const key = fr.reason.substring(0, 120);
-                if (!reasonCounts[key]) reasonCounts[key] = { count: 0, section: fr.section, stores: new Set() };
-                reasonCounts[key].count++;
-                reasonCounts[key].stores.add(fr.siteCode);
-            });
-
-            const sorted = Object.entries(reasonCounts).sort((a, b) => b[1].count - a[1].count).slice(0, 25);
-            const sectionColors = {
-                'A': '#6366F1', 'B': '#10B981', 'C': '#F59E0B', 'D': '#3B82F6',
-                'E': '#EC4899', 'F': '#8B5CF6', 'G': '#14B8A6', 'H': '#F97316',
-                'I': '#06B6D4', 'J': '#EF4444', 'K': '#84CC16'
-            };
-
-            patternEl.innerHTML = sorted.map(([reason, data]) => {
-                const color = sectionColors[data.section] || '#94A3B8';
-                return `<div class="d-inline-flex align-items-center gap-2 px-3 py-2 rounded-pill shadow-sm" 
-                    style="background: ${color}10; border: 1px solid ${color}30; cursor: default; transition: all 0.2s ease;"
-                    title="Section ${data.section} | Found in ${data.stores.size} store(s)">
-                    <span class="badge rounded-circle d-flex align-items-center justify-content-center" 
-                        style="width: 22px; height: 22px; background: ${color}; font-size: 0.6rem; color: white;">${data.section}</span>
-                    <span class="small fw-medium text-dark" style="font-size: 0.78rem; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${reason}</span>
-                    <span class="badge rounded-pill" style="background: ${color}; font-size: 0.6rem; color: white;">${data.count}×</span>
-                </div>`;
-            }).join('');
-        } else if (patternEl) {
-            patternEl.innerHTML = '<div class="text-muted small py-3">No failure patterns detected in the latest wave.</div>';
-        }
-    } catch (err) {
-        console.error('VoC init error:', err);
-    }
-}
-
+// --- Helper for Theme Modal ---
 // --- Helper for Theme Modal ---
 function showThemeAnalysis(theme) {
     if (!window._vocThemeData || !window._vocThemeData[theme]) return;
@@ -3020,3 +2804,440 @@ function openSectionDetail(sectionName) {
         alert("Error opening detail: " + err.message);
     }
 }
+// --- VOC REVAMP MODULE (Categorization + Manager's Notes) ---
+let currentVocPage = 1;
+const vocPageSize = 12;
+let currentVocFilter = 'all';
+let filteredVocData = [];
+let vocCategoryData = {}; // { categoryName: count }
+let vocNoteData = [];     // [{ note, count, sample }]
+
+// Color palette for categories
+const VOC_CAT_COLORS = {
+    'Hospitality': '#1E293B',
+    'Payment/Checkout': '#14B8A6',
+    'Speed of Service': '#3B82F6',
+    'Greeting/Closing': '#F59E0B',
+    'Staffing': '#7C3AED',
+    'Ambiance': '#EC4899',
+    'Facility Maintenance': '#EF4444',
+    'Staff Friendliness': '#06B6D4',
+    'Store Cleanliness': '#10B981',
+    'Product Quality': '#F97316',
+    'Hygiene': '#84CC16'
+};
+
+function getVocCatColor(cat) {
+    return VOC_CAT_COLORS[cat] || '#94A3B8';
+}
+
+function initVoc() {
+    if (!reportData.voc || reportData.voc.length === 0) {
+        filteredVocData = [];
+        return;
+    }
+    filteredVocData = reportData.voc;
+
+    // 1. Aggregate categories
+    vocCategoryData = {};
+    reportData.voc.forEach(item => {
+        const topics = item.topics || item.themes || ['Uncategorized'];
+        topics.forEach(t => { vocCategoryData[t] = (vocCategoryData[t] || 0) + 1; });
+    });
+
+    // 2. Aggregate Manager's Notes (by prefix before ":")
+    const noteMap = {};
+    const noteSamples = {};
+    reportData.voc.forEach(item => {
+        const insight = item.aiInsight || '';
+        const key = insight.includes(':') ? insight.split(':')[0].trim() : insight.trim();
+        if (!key || key === 'N/A') return;
+        noteMap[key] = (noteMap[key] || 0) + 1;
+        if (!noteSamples[key]) noteSamples[key] = item.text;
+    });
+    vocNoteData = Object.entries(noteMap)
+        .map(([note, count]) => ({ note, count, sample: noteSamples[note] || '' }))
+        .sort((a, b) => b.count - a.count);
+
+    // 3. Populate category filter dropdown
+    const filterEl = document.getElementById('vocCategoryFilter');
+    if (filterEl) {
+        const cats = Object.entries(vocCategoryData).sort((a, b) => b[1] - a[1]);
+        filterEl.innerHTML = '<option value="all">All Categories</option>' +
+            cats.map(([cat, cnt]) => `<option value="${cat}">${cat} (${cnt})</option>`).join('');
+    }
+
+    // 4. Render Hero KPIs
+    renderVocKpis();
+
+    // 5. Render Category Chart
+    renderVocCategoryChart();
+
+    // 6. Render Manager's Notes Table
+    renderVocManagerNotes();
+
+    // 7. Render Feedback Grid
+    renderVocGrid();
+
+    // 8. Regional Priority Map
+    renderVocRegionalHeatmap();
+
+    // 9. Service Standards (kept from previous)
+    renderVocServiceStandards();
+}
+
+function renderVocKpis() {
+    const total = reportData.voc ? reportData.voc.length : 0;
+    const topCat = Object.entries(vocCategoryData).sort((a, b) => b[1] - a[1])[0];
+    const topNote = vocNoteData[0];
+    const catCount = Object.keys(vocCategoryData).length;
+
+    if (document.getElementById("vocKpiTotal")) animateValue("vocKpiTotal", 0, total, 1000);
+    if (document.getElementById("vocKpiCatCount")) animateValue("vocKpiCatCount", 0, catCount, 800);
+
+    if (topCat) {
+        const el = document.getElementById("vocKpiTopCat");
+        const countEl = document.getElementById("vocKpiTopCatCount");
+        if (el) el.textContent = topCat[0];
+        if (countEl) countEl.textContent = topCat[1].toLocaleString() + ' mentions';
+    }
+    if (topNote) {
+        const el = document.getElementById("vocKpiTopNote");
+        const countEl = document.getElementById("vocKpiTopNoteCount");
+        if (el) el.textContent = topNote.note;
+        if (countEl) countEl.textContent = topNote.count.toLocaleString() + ' occurrences';
+    }
+}
+
+function renderVocCategoryChart() {
+    const canvas = document.getElementById('vocCategoryChart');
+    if (!canvas) return;
+
+    const sorted = Object.entries(vocCategoryData).sort((a, b) => b[1] - a[1]);
+    const total = sorted.reduce((s, x) => s + x[1], 0);
+
+    const totalEl = document.getElementById('vocCatChartTotal');
+    if (totalEl) totalEl.textContent = total.toLocaleString() + ' total';
+
+    const ctx = canvas.getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: sorted.map(x => x[0]),
+            datasets: [{
+                data: sorted.map(x => x[1]),
+                backgroundColor: sorted.map(x => getVocCatColor(x[0])),
+                borderRadius: 6,
+                barThickness: 28
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function (ctx) {
+                            const pct = ((ctx.raw / total) * 100).toFixed(1);
+                            return `${ctx.raw.toLocaleString()} feedback (${pct}%)`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { font: { size: 11, weight: '600' }, color: '#64748B' }
+                },
+                y: {
+                    grid: { display: false },
+                    ticks: { font: { size: 12, weight: '700' }, color: '#1E293B' }
+                }
+            }
+        }
+    });
+
+    // Dynamically resize canvas height based on number of categories
+    canvas.parentElement.style.height = Math.max(200, sorted.length * 40) + 'px';
+    canvas.style.height = '100%';
+}
+
+function renderVocManagerNotes() {
+    const tbody = document.getElementById('vocManagerNotesBody');
+    if (!tbody) return;
+
+    const total = reportData.voc ? reportData.voc.length : 1;
+    const topNotes = vocNoteData.slice(0, 15);
+    const maxCount = topNotes.length > 0 ? topNotes[0].count : 1;
+
+    tbody.innerHTML = topNotes.map((item, i) => {
+        const pct = ((item.count / total) * 100).toFixed(1);
+        const barWidth = Math.round((item.count / maxCount) * 100);
+        const sampleTrunc = item.sample.length > 80 ? item.sample.substring(0, 80) + '…' : item.sample;
+
+        return `
+            <tr style="cursor:pointer;" onclick="filterVocGrid('${item.note}')" class="voc-note-row">
+                <td class="ps-4 py-3">
+                    <span class="badge rounded-pill fw-bold" style="background: ${i < 3 ? '#1E293B' : '#E2E8F0'}; color: ${i < 3 ? '#fff' : '#475569'}; min-width: 28px;">${i + 1}</span>
+                </td>
+                <td class="py-3">
+                    <div class="fw-bold" style="color: #1E293B; font-size: 0.9rem;">${item.note}</div>
+                    <div class="text-muted" style="font-size: 0.75rem;">${pct}% of all feedback</div>
+                </td>
+                <td class="py-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="flex-grow-1" style="height: 8px; background: #F1F5F9; border-radius: 4px; overflow: hidden;">
+                            <div style="width: ${barWidth}%; height: 100%; background: linear-gradient(90deg, #1E293B, #475569); border-radius: 4px; transition: width 0.6s;"></div>
+                        </div>
+                        <span class="fw-bold small" style="min-width: 50px; text-align: right; color: #1E293B;">${item.count.toLocaleString()}</span>
+                    </div>
+                </td>
+                <td class="py-3 pe-4">
+                    <div class="text-muted fst-italic" style="font-size: 0.78rem; line-height: 1.4;">"${sampleTrunc}"</div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function renderVocRegionalHeatmap() {
+    const container = document.getElementById("vocRegionalHeatmap");
+    if (!container || !reportData.regions) return;
+
+    const regions = Object.keys(reportData.regions).map(r => {
+        const regVoc = reportData.voc ? reportData.voc.filter(v => v.region === r) : [];
+        const total = regVoc.length;
+
+        // Find top category for this region
+        const catCount = {};
+        regVoc.forEach(item => {
+            const topics = item.topics || [];
+            topics.forEach(t => { catCount[t] = (catCount[t] || 0) + 1; });
+        });
+        const topCat = Object.entries(catCount).sort((a, b) => b[1] - a[1])[0];
+
+        // Find top Manager's Note for this region
+        const noteCount = {};
+        regVoc.forEach(item => {
+            const insight = item.aiInsight || '';
+            const key = insight.includes(':') ? insight.split(':')[0].trim() : insight.trim();
+            if (key && key !== 'N/A') noteCount[key] = (noteCount[key] || 0) + 1;
+        });
+        const topNote = Object.entries(noteCount).sort((a, b) => b[1] - a[1])[0];
+
+        return { name: r, total, topCat, topNote };
+    }).filter(r => r.total > 0).sort((a, b) => b.total - a.total);
+
+    container.innerHTML = `
+        <div class="table-responsive">
+            <table class="table table-sm mb-0 align-middle" style="font-size: 0.85rem;">
+                <thead>
+                    <tr style="background: #F8FAFC;">
+                        <th class="py-2 ps-3 text-muted text-uppercase small fw-bold" style="letter-spacing: 0.5px;">Region</th>
+                        <th class="py-2 text-muted text-uppercase small fw-bold" style="letter-spacing: 0.5px;">Feedback</th>
+                        <th class="py-2 text-muted text-uppercase small fw-bold" style="letter-spacing: 0.5px;">Top Category</th>
+                        <th class="py-2 pe-3 text-muted text-uppercase small fw-bold" style="letter-spacing: 0.5px;">#1 Manager Priority</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${regions.map(r => `
+                        <tr>
+                            <td class="py-2 ps-3 fw-bold" style="color: #1E293B;">${r.name}</td>
+                            <td class="py-2">
+                                <span class="badge rounded-pill" style="background: #F1F5F9; color: #475569;">${r.total.toLocaleString()}</span>
+                            </td>
+                            <td class="py-2">
+                                ${r.topCat ? `<span class="badge rounded-pill px-2 py-1" style="background: ${getVocCatColor(r.topCat[0])}20; color: ${getVocCatColor(r.topCat[0])}; border: 1px solid ${getVocCatColor(r.topCat[0])}40; font-size: 0.75rem;">${r.topCat[0]}</span>` : '<span class="text-muted small">—</span>'}
+                            </td>
+                            <td class="py-2 pe-3">
+                                ${r.topNote ? `<span class="small fw-medium" style="color: #B45309;"><i class="bi bi-clipboard2-pulse me-1"></i>${r.topNote[0]} <span class="text-muted">(${r.topNote[1]})</span></span>` : '<span class="text-muted small">—</span>'}
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function renderVocServiceStandards() {
+    const curWave = sortedWaves[sortedWaves.length - 1];
+    const summary = reportData.summary[curWave];
+    if (!summary || !summary.sections) return;
+
+    const sA = summary.sections['A. Grooming & Greeting'] ? Math.round(summary.sections['A. Grooming & Greeting'].sum / summary.sections['A. Grooming & Greeting'].count) : 0;
+    const sB = summary.sections['B. Selling Skill'] ? Math.round(summary.sections['B. Selling Skill'].sum / summary.sections['B. Selling Skill'].count) : 0;
+    const sC = summary.sections['C. Closing & Farewell'] ? Math.round(summary.sections['C. Closing & Farewell'].sum / summary.sections['C. Closing & Farewell'].count) : 0;
+
+    // Update SVG circles
+    const setCircle = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.setAttribute('stroke-dasharray', `${val}, 100`);
+    };
+    setCircle('circleWelcome', sA);
+    setCircle('circleSelling', sB);
+    setCircle('circleClosing', sC);
+
+    // Update percentage text
+    const setVal = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val + '%';
+    };
+    setVal('valWelcome', sA);
+    setVal('valSelling', sB);
+    setVal('valClosing', sC);
+}
+
+function filterVocGrid(type) {
+    currentVocFilter = type;
+    currentVocPage = 1;
+
+    if (!reportData.voc) return;
+
+    if (type === 'all') {
+        filteredVocData = reportData.voc;
+    } else {
+        // Filter by category (topic) OR by Manager's Note prefix
+        filteredVocData = reportData.voc.filter(item => {
+            const topics = item.topics || item.themes || [];
+            const noteKey = (item.aiInsight || '').includes(':') ? (item.aiInsight || '').split(':')[0].trim() : (item.aiInsight || '').trim();
+            return topics.includes(type) || noteKey === type;
+        });
+    }
+
+    // Update dropdown to reflect current filter
+    const filterEl = document.getElementById('vocCategoryFilter');
+    if (filterEl) {
+        // Try to select the matching option
+        for (let i = 0; i < filterEl.options.length; i++) {
+            if (filterEl.options[i].value === type) {
+                filterEl.selectedIndex = i;
+                break;
+            }
+        }
+    }
+
+    renderVocGrid();
+}
+
+function changeVocPage(delta) {
+    const maxPage = Math.ceil(filteredVocData.length / vocPageSize);
+    const newPage = currentVocPage + delta;
+    if (newPage > 0 && newPage <= maxPage) {
+        currentVocPage = newPage;
+        renderVocGrid();
+        document.getElementById("vocFeedbackGrid").scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+
+function renderVocGrid() {
+    const grid = document.getElementById("vocFeedbackGrid");
+    if (!grid) return;
+
+    grid.innerHTML = "";
+
+    const start = (currentVocPage - 1) * vocPageSize;
+    const end = start + vocPageSize;
+    const pageData = filteredVocData.slice(start, end);
+
+    pageData.forEach((item, index) => {
+        const tile = createFeedbackTile(item, index);
+        grid.appendChild(tile);
+    });
+
+    const maxPage = Math.ceil(filteredVocData.length / vocPageSize);
+    const countEl = document.getElementById("vocGridCount");
+    const indicatorEl = document.getElementById("vocPageIndicator");
+
+    if (countEl) countEl.textContent = `Showing ${filteredVocData.length > 0 ? start + 1 : 0}–${Math.min(end, filteredVocData.length)} of ${filteredVocData.length} feedback`;
+    if (indicatorEl) indicatorEl.textContent = `Page ${currentVocPage} of ${maxPage || 1}`;
+
+    const prevBtn = document.getElementById("btnVocPrev");
+    const nextBtn = document.getElementById("btnVocNext");
+
+    if (prevBtn) prevBtn.disabled = currentVocPage === 1;
+    if (nextBtn) nextBtn.disabled = currentVocPage >= maxPage || maxPage === 0;
+}
+
+function createFeedbackTile(item, index) {
+    const col = document.createElement("div");
+    col.className = "col-md-6 col-xl-4";
+
+    // Category badge (primary topic)
+    const topics = item.topics || item.themes || [];
+    const primaryTopic = topics[0] || 'General';
+    const catColor = getVocCatColor(primaryTopic);
+
+    let topicBadgesHtml = topics.map(t =>
+        `<span class="badge rounded-pill me-1 mb-1" style="background: ${getVocCatColor(t)}15; color: ${getVocCatColor(t)}; border: 1px solid ${getVocCatColor(t)}30; font-size: 0.7rem; font-weight: 600;">${t}</span>`
+    ).join('');
+
+    // Manager's Note
+    let noteHtml = "";
+    if (item.aiInsight && item.aiInsight !== 'N/A') {
+        const notePrefix = item.aiInsight.includes(':') ? item.aiInsight.split(':')[0].trim() : '';
+        const noteBody = item.aiInsight.includes(':') ? item.aiInsight.split(':').slice(1).join(':').trim() : item.aiInsight;
+        noteHtml = `
+            <div class="mt-3 p-3 rounded-3" style="background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%); border-left: 3px solid #F59E0B;">
+                <div class="d-flex align-items-center mb-1">
+                    <i class="bi bi-clipboard2-pulse me-1" style="color: #B45309; font-size: 0.8rem;"></i>
+                    <span class="fw-bold" style="color: #B45309; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Manager's Note${notePrefix ? ': ' + notePrefix : ''}</span>
+                </div>
+                <div class="fw-medium" style="color: #78350F; font-size: 0.82rem; line-height: 1.4;">${noteBody}</div>
+            </div>
+        `;
+    }
+
+    const delay = (index % 12) * 50;
+
+    col.innerHTML = `
+        <div class="card h-100 border-0 feedback-card animate-entry" 
+             style="border-radius: 14px; transition: all 0.2s; animation-delay: ${delay}ms; border: 1px solid #E2E8F0;">
+            <div class="card-body p-4 d-flex flex-column">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div class="d-flex flex-wrap gap-1">${topicBadgesHtml}</div>
+                    <span class="text-muted small fw-bold flex-shrink-0 ms-2" style="font-size: 0.7rem; letter-spacing: 0.5px; color: #94A3B8;">${item.wave || ''} ${item.year || ''}</span>
+                </div>
+                <div class="mb-2 flex-grow-1">
+                    <p class="mb-0" style="font-style: italic; line-height: 1.65; font-size: 0.92rem; color: #334155;">"${item.text}"</p>
+                    ${noteHtml}
+                </div>
+                <div class="mt-auto pt-3" style="border-top: 1px solid #F1F5F9;">
+                   <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center">
+                            <div class="rounded-circle d-flex align-items-center justify-content-center me-2" style="width:30px; height:30px; background: ${catColor}15;">
+                                <i class="bi bi-shop" style="color: ${catColor}; font-size: 0.75rem;"></i>
+                            </div>
+                            <div style="line-height:1.2">
+                                <div class="small fw-bold text-truncate" style="max-width: 140px; color: #1E293B;" title="${item.siteName || 'Store'}">${item.siteName || 'Store'}</div>
+                                <div style="font-size: 0.65rem; color: #94A3B8;">${item.region || 'Region'}</div>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <i class="bi bi-patch-check-fill" style="color: #14B8A6;" title="AI Enhanced"></i>
+                        </div>
+                   </div>
+                </div>
+            </div>
+        </div>
+    `;
+    return col;
+}
+
+// INITIALIZATION ENTRY POINT
+window.onload = function () {
+    initSummary();
+    initRegions(); // NOTE: Calling again here might duplicate if initVoc calls it too. 
+    // But initRegions relies on current tab? 
+    // Let's check initRegions implementation. It attaches to current tab?
+    // No, it renders charts to IDs. 
+    // If IDs are unique, it's fine.
+    initBranches();
+    initStoreTable(); // Initialize Store List
+    initVoc(); // START VOC ENGINE
+
+    // Show summary by default
+    showTab('summary');
+};

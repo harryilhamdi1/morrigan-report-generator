@@ -51,12 +51,15 @@
                     <thead class="bg-light">
                         <tr class="text-secondary small text-uppercase"
                             style="font-size: 0.75rem; letter-spacing: 0.5px;">
-                            <th class="py-3 ps-4" style="width: 5%;">Rank</th>
+                            <th class="py-3 ps-4" style="width: 5%; cursor: pointer;" onclick="sortStoreTable('rank')">
+                                Rank ↕</th>
                             <th class="py-3" style="width: 10%;">Store ID</th>
-                            <th class="py-3" style="width: 30%;">Store Name</th>
+                            <th class="py-3" style="width: 30%; cursor: pointer;" onclick="sortStoreTable('name')">Store
+                                Name ↕</th>
                             <th class="py-3" style="width: 15%;">Branch</th>
                             <th class="py-3" style="width: 15%;">Region</th>
-                            <th class="py-3 text-end" style="width: 10%;">Last Score</th>
+                            <th class="py-3 text-end" style="width: 10%; cursor: pointer;"
+                                onclick="sortStoreTable('score')">Last Score ↕</th>
                             <th class="py-3 text-center" style="width: 15%;">Action</th>
                         </tr>
                     </thead>
@@ -280,11 +283,63 @@
             </div>
         </div>
 
+        <!-- 4. Qualitative Feedback (Relocated & Enhanced) -->
+        <div class="row g-4 mb-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm"
+                    style="background: linear-gradient(165deg, #ffffff 0%, #f1f5f9 100%); border-radius: 16px; overflow: hidden;">
+                    <!-- Decorative Header Strip -->
+                    <div style="height: 6px; background: linear-gradient(90deg, #6366F1, #8B5CF6, #EC4899);"></div>
+                    <div class="card-body p-4 px-md-5">
+                        <div
+                            class="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4 gap-3">
+                            <div class="d-flex align-items-center text-center text-md-start">
+                                <div class="rounded-circle d-flex align-items-center justify-content-center me-3 shadow-sm flex-shrink-0"
+                                    style="width: 48px; height: 48px; background: white; color: #6366F1;">
+                                    <i class="bi bi-chat-quote-fill" style="font-size: 1.5rem;"></i>
+                                </div>
+                                <div>
+                                    <h4 class="fw-bold text-dark mb-0" style="letter-spacing: -0.5px;">Voice of Customer
+                                    </h4>
+                                    <p class="text-muted small mb-0 opacity-75">Aggregated qualitative feedback &
+                                        sentiment insights</p>
+                                </div>
+                            </div>
+
+                            <div class="d-flex align-items-center gap-3 bg-white p-2 rounded-pill shadow-sm border">
+                                <div class="btn-group" role="group">
+                                    <button type="button"
+                                        class="btn btn-sm btn-light rounded-pill border-0 fw-bold px-3 active"
+                                        onclick="filterFeedback('all', this)" style="font-size: 0.85rem;">All</button>
+                                    <button type="button" class="btn btn-sm btn-light rounded-pill border-0 px-3"
+                                        onclick="filterFeedback('positive', this)"
+                                        style="color: #059669;">Positive</button>
+                                    <button type="button" class="btn btn-sm btn-light rounded-pill border-0 px-3"
+                                        onclick="filterFeedback('neutral', this)"
+                                        style="color: #64748B;">Neutral</button>
+                                    <button type="button" class="btn btn-sm btn-light rounded-pill border-0 px-3"
+                                        onclick="filterFeedback('negative', this)"
+                                        style="color: #DC2626;">Negative</button>
+                                </div>
+                                <div class="vr mx-1"></div>
+                                <span class="badge bg-dark rounded-pill" id="stFeedbackCount">0</span>
+                            </div>
+                        </div>
+
+                        <!-- Feedback Grid (Masonry-like with CSS columns) -->
+                        <div id="stFeedback" class="feedback-grid" style="column-count: 2; column-gap: 1.5rem;">
+                            <!-- Items injected here by JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
 
-        <!-- 5. Detailed Section Analysis Table & VoC -->
-        <div class="row g-4">
-            <div class="col-xl-8">
+
+        <!-- 5. Detailed Section Analysis Table -->
+        <div class="row g-4 mb-4">
+            <div class="col-12">
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-body p-4">
                         <h5 class="fw-bold text-dark mb-4">Detailed Section Analysis</h5>
@@ -306,61 +361,9 @@
                     </div>
                 </div>
             </div>
-            <div class="col-xl-4">
-                <div class="card h-100 border-0 shadow-sm"
-                    style="background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);">
-                    <div class="card-body p-4">
-                        <!-- Header with Sentiment Summary -->
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h6 class="fw-bold text-dark mb-0">
-                                <i class="bi bi-chat-quote-fill me-2" style="color: #6366F1;"></i>Qualitative Feedback
-                            </h6>
-                            <span class="badge rounded-pill" id="stFeedbackCount"
-                                style="background: linear-gradient(135deg, #6366F1, #8B5CF6); font-size: 0.7rem;">0</span>
-                        </div>
-
-                        <!-- Sentiment Summary Bar -->
-                        <div class="mb-3" id="stSentimentBar">
-                            <div class="d-flex rounded-pill overflow-hidden" style="height: 6px; background: #E2E8F0;">
-                                <div id="stSentBarPos"
-                                    style="background: linear-gradient(90deg, #10B981, #34D399); width: 0%; transition: width 0.6s ease;">
-                                </div>
-                                <div id="stSentBarNeu"
-                                    style="background: #94A3B8; width: 0%; transition: width 0.6s ease;"></div>
-                                <div id="stSentBarNeg"
-                                    style="background: linear-gradient(90deg, #F87171, #EF4444); width: 0%; transition: width 0.6s ease;">
-                                </div>
-                            </div>
-                            <div class="d-flex justify-content-between mt-1">
-                                <small class="text-success fw-semibold" style="font-size: 0.65rem;"><span
-                                        id="stSentPosCount">0</span> Positive</small>
-                                <small class="text-secondary fw-semibold" style="font-size: 0.65rem;"><span
-                                        id="stSentNeuCount">0</span> Neutral</small>
-                                <small class="text-danger fw-semibold" style="font-size: 0.65rem;"><span
-                                        id="stSentNegCount">0</span> Negative</small>
-                            </div>
-                        </div>
-
-                        <!-- Filter Buttons -->
-                        <div class="btn-group w-100 mb-3" role="group" style="gap: 4px;">
-                            <button type="button" class="btn btn-sm rounded-pill active"
-                                style="font-size: 0.7rem; padding: 4px 12px; background: #1E293B; color: white; border: none;"
-                                onclick="filterFeedback('all', this)">All</button>
-                            <button type="button" class="btn btn-sm rounded-pill"
-                                style="font-size: 0.7rem; padding: 4px 12px; background: #F1F5F9; color: #64748B; border: none;"
-                                onclick="filterFeedback('positive', this)">🟢 Positive</button>
-                            <button type="button" class="btn btn-sm rounded-pill"
-                                style="font-size: 0.7rem; padding: 4px 12px; background: #F1F5F9; color: #64748B; border: none;"
-                                onclick="filterFeedback('negative', this)">🔴 Negative</button>
-                        </div>
-
-                        <!-- Feedback Cards -->
-                        <div id="stFeedback" class="d-flex flex-column gap-3"
-                            style="max-height: 500px; overflow-y: auto; scrollbar-width: thin;"></div>
-                    </div>
-                </div>
-            </div>
         </div>
+
+
 
         <!-- 5b. Customer Interaction Replay -->
         <div class="row g-4 mt-1" id="stDialogueSection" style="display: none;">

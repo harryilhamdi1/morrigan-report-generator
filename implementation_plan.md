@@ -58,8 +58,12 @@
     - [x] **Interactivity**: Click-to-filter from Matrix chart to detail cards.
 
 - [ ] **Phase 4: Advanced Features (Future)**
-  - [ ] "Battle Mode" (Compare 2 Stores Side-by-Side).
-  - [ ] PDF Export Optimization.ts from unstructured qualitative text.
+- [x] **Phase 4a: AI-Powered VoC Analysis (Offline Enhanced)**
+    - [x] **Golden Cache**: 2,000+ items analyzed internally.
+    - [x] **Offline Enricher**: 100% API-free matching system.
+    - [x] **AI Insight UI**: Lightbulb-style "Manager Tips" on cards.
+  - [ ] **Phase 4b: Battle Mode** (Compare 2 Stores Side-by-Side).
+  - [ ] **Phase 4c: PDF Export Optimization**.
 - [x] **Keyword Frequency Analysis:** Implement lightweight JavaScript logic to count repetitive words in feedback (e.g., "Panas", "Lama", "Kotor").
 - [x] **Word Cloud Visualization:** Visualize top customer complaints/compliments.
 - [x] **Sentiment Association:** Correlate specific keywords with low section scores (e.g., Link word "Kasar" to "Service").

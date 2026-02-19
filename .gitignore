@@ -5,3 +5,4 @@ report_v2.html
 report.html
 # We keep report_v3.html if you want to showcase the result, otherwise add it here.
 # For now, I'll keep it so you can see the output in the repo.
+.env

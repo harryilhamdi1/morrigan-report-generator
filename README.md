@@ -82,6 +82,22 @@ The old monolithic scripts (`generate_report_v4.js`, etc.) have been archived (`
 - **Action Plans**: Edit `src/config/action_plans.js` to update recommendations.
 - **HTML/CSS**: Edit files in `src/templates/` to change the report's look and feel.
 
+## 🤖 AI VoC Engine (Offline Enhanced)
+
+The report features an AI-enhanced Voice of Customer (VoC) analysis engine that is **100% offline** and requires no API keys.
+
+### 🧠 Analysis Strategy: "Golden Cache"
+To ensure privacy, speed, and visual excellence, the system uses a pre-seeded intelligence layer:
+1.  **Golden Cache (`src/cache/voc_ai_cache.json`)**: Pre-populated with high-quality analysis for **2,000+ top items**. 
+2.  **Manager's Tips (`aiInsight`)**: Every analyzed item includes a specific operational tip (e.g., "Enforce grooming SOP", "Repair lighting").
+3.  **Smart Categorization**: Replaces manual themes with accurate categories (Staffing, Ambiance, Hygiene, etc.).
+4.  **Zero-Latency**: Because it's cache-driven, the build process is instantaneous and works without an internet connection.
+
+### ⚙️ Configuration
+- **Intelligence Layer**: The system automatically matches feedback against the cache during the build.
+- **Cache File**: `src/cache/voc_ai_cache.json` stores all analyzed insights.
+- **Enricher Module**: `src/modules/ai_voc.js` handles the local matching logic.
+
 ## 🐛 Troubleshooting & Logic Fixes (Feb 2026)
 
 During the refactoring process to a modular architecture, the following critical issues were identified and resolved:

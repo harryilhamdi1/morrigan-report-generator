@@ -19,7 +19,9 @@ function buildHierarchy(allStoreData, waves) {
                 ...q,
                 siteName: entry.siteName,
                 siteCode: entry.siteCode,
-                region: entry.region
+                region: entry.region,
+                wave: entry.wave,
+                year: entry.year
             }));
             allQualitative.push(...enrichedQualitative);
         }
