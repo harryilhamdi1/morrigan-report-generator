@@ -4,7 +4,7 @@ const zlib = require('zlib'); // ADDED: Zlib for server-side compression
 const WAVES = require('./config/waves');
 const ACTION_PLANS_MAP = require('./config/action_plans');
 const { THRESHOLD_SCORE } = require('./config/scoring');
-const { loadMasterData, loadSectionWeights } = require('./modules/data_loader');
+const { loadMasterData, loadSectionWeights, loadLigaData } = require('./modules/data_loader');
 const { processWave, processVoc } = require('./modules/scorer');
 const { buildHierarchy } = require('./modules/aggregator');
 const { generateInsights } = require('./modules/voc'); // Import Rule-Based Insight Generator
@@ -26,6 +26,7 @@ async function main() {
     console.log("   Loading Master Data & Weights...");
     const masterMap = await loadMasterData(path.join(BASE_DIR, 'CSV', 'Master Site Morrigan.csv'));
     const sectionWeights = await loadSectionWeights(BASE_DIR); // Pass base dir to find CSV folder
+    const ligaMap = await loadLigaData(path.join(BASE_DIR, 'CSV', 'CSE Analysis - Liga ESS.csv'));
 
     // 2. Process All Waves
     let allStoreData = [];
@@ -35,7 +36,7 @@ async function main() {
         const filePath = path.join(BASE_DIR, 'CSV', wave.file);
         try {
             console.log(`    - Processing ${wave.name} (${wave.year})...`);
-            const waveData = await processWave(filePath, wave.name, wave.year, masterMap, sectionWeights);
+            const waveData = await processWave(filePath, wave.name, wave.year, masterMap, sectionWeights, ligaMap);
             console.log(`      > Found ${waveData.length} records.`);
             allStoreData = allStoreData.concat(waveData);
         } catch (err) {

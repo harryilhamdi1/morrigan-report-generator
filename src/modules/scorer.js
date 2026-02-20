@@ -12,7 +12,7 @@ function parseItemScore(val) {
     return null;
 }
 
-async function processWave(filePath, waveName, year, masterMap) {
+async function processWave(filePath, waveName, year, masterMap, sectionWeights, ligaMap) {
     const content = await fs.readFile(filePath, 'utf8');
     const records = parse(content, { columns: true, delimiter: ';', skip_empty_lines: true, relax_column_count: true, trim: true, bom: true });
 
@@ -39,6 +39,7 @@ async function processWave(filePath, waveName, year, masterMap) {
             branch: masterInfo.branch,
             wave: waveName,
             year: year,
+            liga: ligaMap?.[siteCode] || { tier_2024: 'UNKNOWN', tier_2025: 'UNKNOWN', tier_2026: 'UNKNOWN' },
             sections: {},
             qualitative: [],
             failedItems: []

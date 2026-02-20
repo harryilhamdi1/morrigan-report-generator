@@ -263,16 +263,47 @@
             color: white;
         }
 
+        /* Liga Tiering Badges */
+        .liga-badge-gold {
+            background: linear-gradient(135deg, #FDE68A 0%, #D97706 100%);
+            color: #fff;
+            box-shadow: 0 4px 6px -1px rgba(217, 119, 6, 0.2);
+            border: 1px solid #FCD34D;
+        }
+
+        .liga-badge-silver {
+            background: linear-gradient(135deg, #E5E7EB 0%, #9CA3AF 100%);
+            color: #fff;
+            box-shadow: 0 4px 6px -1px rgba(156, 163, 175, 0.2);
+            border: 1px solid #D1D5DB;
+        }
+
+        .liga-badge-bronze {
+            background: linear-gradient(135deg, #FDBA74 0%, #C2410C 100%);
+            color: #fff;
+            box-shadow: 0 4px 6px -1px rgba(194, 65, 12, 0.2);
+            border: 1px solid #FDBA74;
+        }
+
+        .liga-badge-rising {
+            background: linear-gradient(135deg, #A78BFA 0%, #6D28D9 100%);
+            color: #fff;
+            box-shadow: 0 4px 6px -1px rgba(109, 40, 217, 0.2);
+            border: 1px solid #A78BFA;
+        }
+
         /* Premium Regional Cards */
         .regional-card-premium:hover {
             transform: translateY(-5px);
-            box-shadow: 0 20px 40px -15px rgba(0,0,0,0.15) !important;
+            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.15) !important;
         }
+
         .btn-regional-action:hover {
             background: #F8FAFC !important;
             border-color: #3B82F6 !important;
             box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15) !important;
         }
+
         .regional-rank {
             width: 38px;
             height: 38px;
@@ -282,29 +313,32 @@
             justify-content: center;
             font-weight: 800;
             font-size: 1.1rem;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
             flex-shrink: 0;
         }
+
         .glass-rank.rank-1 {
             background: linear-gradient(135deg, rgba(255, 215, 0, 0.85) 0%, rgba(245, 158, 11, 0.95) 100%);
             color: white;
-            border: 1px solid rgba(255,255,255,0.6);
+            border: 1px solid rgba(255, 255, 255, 0.6);
             backdrop-filter: blur(4px);
-            text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
         }
+
         .glass-rank.rank-2 {
             background: linear-gradient(135deg, rgba(209, 213, 219, 0.85) 0%, rgba(156, 163, 175, 0.95) 100%);
             color: white;
-            border: 1px solid rgba(255,255,255,0.6);
+            border: 1px solid rgba(255, 255, 255, 0.6);
             backdrop-filter: blur(4px);
-            text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
         }
+
         .glass-rank.rank-3 {
             background: linear-gradient(135deg, rgba(253, 186, 116, 0.85) 0%, rgba(205, 127, 50, 0.95) 100%);
             color: white;
-            border: 1px solid rgba(255,255,255,0.6);
+            border: 1px solid rgba(255, 255, 255, 0.6);
             backdrop-filter: blur(4px);
-            text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
         }
 
         /* Section Analysis Grid */
@@ -817,6 +851,55 @@
             justify-content: center;
             font-size: 1.2rem;
         }
+
+        /* Premium Table Styles */
+        .premium-table {
+            border-collapse: separate;
+            border-spacing: 0 8px;
+            /* Vertical spacing between rows */
+            background-color: transparent;
+        }
+
+        .premium-table thead th {
+            border-bottom: none !important;
+            padding-bottom: 0.5rem;
+        }
+
+        .premium-table tbody tr.premium-row {
+            background-color: #fff;
+            transition: all 0.2s ease-in-out;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+            position: relative;
+        }
+
+        .premium-table tbody tr.premium-row td {
+            border-top: 1px solid transparent;
+            border-bottom: 1px solid transparent;
+        }
+
+        .premium-table tbody tr.premium-row td:first-child {
+            border-left: 1px solid transparent;
+            border-top-left-radius: 12px;
+            border-bottom-left-radius: 12px;
+        }
+
+        .premium-table tbody tr.premium-row td:last-child {
+            border-right: 1px solid transparent;
+            border-top-right-radius: 12px;
+            border-bottom-right-radius: 12px;
+        }
+
+        .premium-table tbody tr.premium-row:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+            z-index: 10;
+        }
+
+        .premium-table tbody tr.premium-row:hover td {
+            border-color: rgba(59, 130, 246, 0.1);
+            /* Subtle blue border on hover */
+        }
     </style>
 </head>
 
@@ -861,10 +944,15 @@
         </div>
         <div class="sidebar-footer">
             <div class="d-flex align-items-center px-1">
-                <div class="user-avatar shadow-sm" style="width: 36px; height: 36px; background: rgba(255,255,255,0.1); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.9rem; margin-right: 12px; border: 1px solid rgba(255,255,255,0.2);">H</div>
+                <div class="user-avatar shadow-sm"
+                    style="width: 36px; height: 36px; background: rgba(255,255,255,0.1); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.9rem; margin-right: 12px; border: 1px solid rgba(255,255,255,0.2);">
+                    H</div>
                 <div style="line-height: 1.2;">
-                    <div style="font-weight: 600; color: white; font-size: 0.85rem; letter-spacing: 0.3px;">Harry Ilhamdi</div>
-                    <div style="font-size: 0.7rem; color: rgba(148, 163, 184, 0.9); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px;">HCBP Dept</div>
+                    <div style="font-weight: 600; color: white; font-size: 0.85rem; letter-spacing: 0.3px;">Harry
+                        Ilhamdi</div>
+                    <div
+                        style="font-size: 0.7rem; color: rgba(148, 163, 184, 0.9); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px;">
+                        HCBP Dept</div>
                 </div>
             </div>
         </div>

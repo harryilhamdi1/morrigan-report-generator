@@ -29,6 +29,33 @@ function normalizeString(str) {
     return String(str).trim().toUpperCase();
 }
 
+async function loadLigaData(filePath) {
+    try {
+        const content = await fs.readFile(filePath, 'utf8');
+        const records = parse(content, { columns: true, delimiter: ',', skip_empty_lines: true, trim: true, bom: true });
+        const ligaMap = {};
+        records.forEach(r => {
+            const branchName = r['Short branch name'];
+            if (branchName) {
+                // Extract code from something like "7010 - EIGER Adventure..."
+                const parts = branchName.split('-');
+                if (parts[0]) {
+                    const code = parts[0].trim();
+                    ligaMap[code] = {
+                        tier_2024: r['Klasifikasi Liga 2024']?.trim() || 'UNKNOWN',
+                        tier_2025: r['Klasifikasi Liga 2025, AVG Score']?.trim() || 'UNKNOWN',
+                        tier_2026: r['LIGA 2026']?.trim() || 'UNKNOWN'
+                    };
+                }
+            }
+        });
+        return ligaMap;
+    } catch (err) {
+        console.warn("Warning: Could not load Liga Data from " + filePath);
+        return {};
+    }
+}
+
 async function loadSectionWeights(baseDir) {
     let weights = {};
     try {
@@ -51,4 +78,4 @@ async function loadSectionWeights(baseDir) {
     return weights;
 }
 
-module.exports = { loadMasterData, loadSectionWeights, normalizeString };
+module.exports = { loadMasterData, loadSectionWeights, normalizeString, loadLigaData };

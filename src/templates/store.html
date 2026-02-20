@@ -10,7 +10,7 @@
         <!-- Filters (Luxury Card) -->
         <div class="card p-4 mb-4 border-0 shadow-sm accent-stripe-blue">
             <div class="row g-3 align-items-end">
-                <div class="col-lg-4 col-md-6">
+                <div class="col-lg-3 col-md-6">
                     <label class="small text-uppercase fw-bold text-muted mb-1"
                         style="font-size:0.7rem; letter-spacing:0.5px;">Search Store</label>
                     <div class="input-group">
@@ -23,7 +23,7 @@
                             placeholder="Store Name or ID..." onkeyup="renderStoreTable()">
                     </div>
                 </div>
-                <div class="col-lg-3 col-md-6">
+                <div class="col-lg-2 col-md-6">
                     <label class="small text-uppercase fw-bold text-muted mb-1"
                         style="font-size:0.7rem; letter-spacing:0.5px;">Region</label>
                     <select id="storeListRegion" class="form-select border-0 bg-light"
@@ -39,7 +39,26 @@
                         <option value="">All Branches</option>
                     </select>
                 </div> <!-- Corrected closing div -->
-                <div class="col-lg-2 col-md-6 text-end">
+                <div class="col-lg-2 col-md-6">
+                    <label class="small text-uppercase fw-bold text-muted mb-1"
+                        style="font-size:0.7rem; letter-spacing:0.5px;">Liga ESS</label>
+                    <select id="storeListLeague" class="form-select border-0 bg-light" onchange="renderStoreTable()">
+                        <option value="">All Leagues</option>
+                        <option value="GOLD">Gold</option>
+                        <option value="SILVER">Silver</option>
+                        <option value="BRONZE">Bronze</option>
+                        <option value="RISING STAR">Rising Star</option>
+                        <option value="UNRATED">Unrated</option>
+                    </select>
+                </div>
+                <div class="col-lg-2 col-md-12 text-end">
+                    <div class="mb-2">
+                        <span
+                            class="badge bg-primary bg-opacity-10 text-primary border border-primary px-3 py-1 rounded-pill fw-bold shadow-sm"
+                            style="font-size: 0.75rem;">
+                            <i class="bi bi-shop me-1"></i> <span id="topStoreCount">...</span> Stores
+                        </span>
+                    </div>
                     <button class="btn btn-link text-muted p-0 text-decoration-none small"
                         onclick="resetStoreFilters()">Reset Filters</button>
                 </div>
@@ -47,25 +66,23 @@
         </div>
 
         <!-- Master Table -->
-        <div class="card border-0 shadow-sm overflow-hidden">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0" id="storeMasterTable">
-                    <thead class="bg-light">
+        <div class="card border-0 shadow-sm overflow-hidden bg-transparent">
+            <div class="table-responsive px-1 pb-2">
+                <table class="table premium-table align-middle mb-0" id="storeMasterTable">
+                    <thead>
                         <tr class="text-secondary small text-uppercase"
                             style="font-size: 0.7rem; letter-spacing: 0.5px; font-weight: 700;">
-                            <th class="py-3 ps-4" style="width: 5%; cursor: pointer;" onclick="sortStoreTable('rank')">
-                                Rank ↕</th>
-                            <th class="py-3" style="width: 10%;">Store ID</th>
-                            <th class="py-3" style="width: 30%; cursor: pointer;" onclick="sortStoreTable('name')">Store
-                                Name ↕</th>
-                            <th class="py-3" style="width: 15%;">Branch</th>
-                            <th class="py-3" style="width: 15%;">Region</th>
-                            <th class="py-3 text-end" style="width: 10%; cursor: pointer;"
-                                onclick="sortStoreTable('score')">Last Score ↕</th>
-                            <th class="py-3 text-center" style="width: 15%;">Action</th>
+                            <th class="py-2 ps-4" style="width: 8%; cursor: pointer; border-bottom:0;"
+                                onclick="sortStoreTable('rank')">Rank ↕</th>
+                            <th class="py-2" style="width: 40%; cursor: pointer; border-bottom:0;"
+                                onclick="sortStoreTable('name')">Store Overview ↕</th>
+                            <th class="py-2" style="width: 22%; border-bottom:0;">Location</th>
+                            <th class="py-2 text-end pe-4" style="width: 15%; cursor: pointer; border-bottom:0;"
+                                onclick="sortStoreTable('score')">Performance ↕</th>
+                            <th class="py-2 text-center" style="width: 15%; border-bottom:0;">Action</th>
                         </tr>
                     </thead>
-                    <tbody class="border-top-0 bg-white" id="storeMasterBody">
+                    <tbody class="border-top-0" id="storeMasterBody" style="background:transparent;">
                         <!-- Rows rendered via JS -->
                     </tbody>
                 </table>
@@ -290,49 +307,58 @@
         <!-- 4. Qualitative Feedback (Relocated & Enhanced) -->
         <div class="row g-4 mb-4">
             <div class="col-12">
-                <div class="card border-0 shadow-sm"
-                    style="background: linear-gradient(165deg, #ffffff 0%, #f1f5f9 100%); border-radius: 16px; overflow: hidden;">
-                    <!-- Decorative Header Strip -->
-                    <div style="height: 6px; background: linear-gradient(90deg, #6366F1, #8B5CF6, #EC4899);"></div>
-                    <div class="card-body p-4 px-md-5">
-                        <div
-                            class="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4 gap-3">
-                            <div class="d-flex align-items-center text-center text-md-start">
-                                <div class="rounded-circle d-flex align-items-center justify-content-center me-3 shadow-sm flex-shrink-0"
-                                    style="width: 48px; height: 48px; background: white; color: #6366F1;">
-                                    <i class="bi bi-chat-quote-fill" style="font-size: 1.5rem;"></i>
-                                </div>
-                                <div>
-                                    <h4 class="fw-bold text-dark mb-0" style="letter-spacing: -0.5px;">Voice of Customer
-                                    </h4>
-                                    <p class="text-muted small mb-0 opacity-75">Aggregated qualitative feedback &
-                                        sentiment insights</p>
-                                </div>
-                            </div>
+                <!-- QUALITATIVE INTELLIGENCE (Action Tiles) -->
+                <div class="card border-0 shadow-sm accent-stripe-purple">
+                    <div
+                        class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0 fw-bold text-dark"><i
+                                class="bi bi-chat-square-quote-fill me-2 text-primary"></i> Qualitative Analysis &
+                            Action Plans</h6>
+                        <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill"><span
+                                id="stFeedbackCount">0</span> Insights</span>
+                    </div>
+                    <div class="card-body p-4 bg-light">
+                        <!-- Priority Themes -->
+                        <div class="mb-4">
+                            <h6 class="text-uppercase text-muted xsmall fw-bold mb-2 ls-1">Priority Themes</h6>
+                            <div id="stPriorityThemes" class="text-muted small">No themes detected.</div>
+                        </div>
 
-                            <div class="d-flex align-items-center gap-3 bg-white p-2 rounded-pill shadow-sm border">
-                                <div class="btn-group" role="group">
-                                    <button type="button"
-                                        class="btn btn-sm btn-light rounded-pill border-0 fw-bold px-3 active"
-                                        onclick="filterFeedback('all', this)" style="font-size: 0.85rem;">All</button>
-                                    <button type="button" class="btn btn-sm btn-light rounded-pill border-0 px-3"
-                                        onclick="filterFeedback('positive', this)"
-                                        style="color: #059669;">Positive</button>
-                                    <button type="button" class="btn btn-sm btn-light rounded-pill border-0 px-3"
-                                        onclick="filterFeedback('neutral', this)"
-                                        style="color: #64748B;">Neutral</button>
-                                    <button type="button" class="btn btn-sm btn-light rounded-pill border-0 px-3"
-                                        onclick="filterFeedback('negative', this)"
-                                        style="color: #DC2626;">Negative</button>
-                                </div>
-                                <div class="vr mx-1"></div>
-                                <span class="badge bg-dark rounded-pill" id="stFeedbackCount">0</span>
+                        <!-- AI Recap Summary Tiles -->
+                        <div class="row g-3 mb-4" id="stRecapTiles">
+                            <!-- Populated by JS -->
+                        </div>
+
+                        <!-- NEW: Filter Controls Row -->
+                        <div
+                            class="d-flex flex-column flex-md-row justify-content-end align-items-center mb-3 p-3 bg-white rounded-3 shadow-sm border">
+                            <!-- Theme/Category Filter -->
+                            <div class="d-flex align-items-center gap-2">
+                                <label class="small text-muted fw-bold mb-0">Category:</label>
+                                <select id="vocThemeFilter"
+                                    class="form-select form-select-sm border-0 bg-light fw-medium shadow-sm"
+                                    style="min-width: 180px;" onchange="filterVocTheme(this.value)">
+                                    <option value="all">All Categories</option>
+                                    <!-- Options injected by JS -->
+                                </select>
                             </div>
                         </div>
 
-                        <!-- Feedback Grid (Masonry-like with CSS columns) -->
-                        <div id="stFeedback" class="feedback-grid" style="column-count: 2; column-gap: 1.5rem;">
+                        <!-- Insight Tiles Grid -->
+                        <div class="row g-3" id="stFeedback">
                             <!-- Items injected here by JS -->
+                        </div>
+
+                        <!-- NEW: Pagination Controls -->
+                        <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top"
+                            id="stFeedbackPaginationContainer" style="display: none !important;">
+                            <span class="small text-muted fw-medium" id="vocPageInfo">Showing 0 insights</span>
+                            <div class="btn-group btn-group-sm shadow-sm">
+                                <button class="btn btn-white border fw-bold text-dark px-3" id="vocBtnPrev"
+                                    onclick="changeStoreVocPage(-1)"><i class="bi bi-chevron-left"></i></button>
+                                <button class="btn btn-white border fw-bold text-dark px-3" id="vocBtnNext"
+                                    onclick="changeStoreVocPage(1)"><i class="bi bi-chevron-right"></i></button>
+                            </div>
                         </div>
                     </div>
                 </div>

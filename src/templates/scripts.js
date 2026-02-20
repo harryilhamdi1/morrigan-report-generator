@@ -1143,7 +1143,8 @@ function showCulpritModal(branchName, sectionName = null) {
                 region: s.meta.region,
                 brAvg: brScore || 0,
                 secScore: currentCulpritSection ? getStoreSecScore(d.sections, currentCulpritSection) : null,
-                sect: d.sections
+                sect: d.sections,
+                liga: s.liga
             };
         })
         .filter(s => {
@@ -1206,11 +1207,19 @@ function renderCulpritList() {
         var devAmount = (displayScore - s.brAvg).toFixed(1);
         var devStr = displayScore >= s.brAvg ? "+" + devAmount : devAmount;
 
+        // Liga ESS Badge (Culprit Modal)
+        var ligaTier = s.liga ? s.liga.tier_2025 : 'UNKNOWN';
+        var ligaHTML = '';
+        if (ligaTier === 'GOLD') ligaHTML = '<span class="badge rounded-pill liga-badge-gold ms-2 mb-1" style="font-size: 0.6rem;"><i class="bi bi-award-fill me-1"></i>GOLD</span>';
+        else if (ligaTier === 'SILVER') ligaHTML = '<span class="badge rounded-pill liga-badge-silver ms-2 mb-1" style="font-size: 0.6rem;"><i class="bi bi-shield-fill me-1"></i>SILVER</span>';
+        else if (ligaTier === 'BRONZE') ligaHTML = '<span class="badge rounded-pill liga-badge-bronze ms-2 mb-1" style="font-size: 0.6rem;"><i class="bi bi-star-fill me-1"></i>BRONZE</span>';
+        else if (ligaTier === 'RISING STAR') ligaHTML = '<span class="badge rounded-pill liga-badge-rising ms-2 mb-1" style="font-size: 0.6rem;"><i class="bi bi-stars me-1"></i>RISING STAR</span>';
+
         item.innerHTML = `
         <div class="row align-items-center g-3">
             <div class="col-md-7 border-end border-light">
                 <div class="d-flex justify-content-between align-items-center mb-1" >
-                    <span class="fw-bold text-dark" style="font-size: 1.05rem; letter-spacing: -0.2px;">${s.n}</span>
+                    <div><span class="fw-bold text-dark" style="font-size: 1.05rem; letter-spacing: -0.2px;">${s.n}</span>${ligaHTML}</div>
                     <span class="badge ${badgeColor} rounded-pill fs-6 fw-bold ms-2 shadow-sm">${displayScore.toFixed(1)}</span>
                 </div>
                 <div class="text-muted small mb-3"><i class="bi bi-geo-alt-fill me-1 opacity-50"></i>${s.region}</div>
@@ -1484,6 +1493,8 @@ function updateBranchFilter() {
 function resetStoreFilters() {
     document.getElementById("storeListSearch").value = "";
     document.getElementById("storeListRegion").value = "";
+    var leagueEl = document.getElementById("storeListLeague");
+    if (leagueEl) leagueEl.value = "";
     updateBranchFilter();
     renderStoreTable();
 }
@@ -1496,6 +1507,7 @@ function renderStoreTable() {
     const search = document.getElementById('storeListSearch').value.toLowerCase();
     const regionFilter = document.getElementById('storeListRegion').value;
     const branchFilter = document.getElementById('storeListBranch').value;
+    const leagueFilter = document.getElementById('storeListLeague') ? document.getElementById('storeListLeague').value : "";
     const cur = sortedWaves[sortedWaves.length - 1];
 
     if (!window._storeData) {
@@ -1517,7 +1529,11 @@ function renderStoreTable() {
         const matchSearch = (s.meta.name.toLowerCase().includes(search) || s.meta.code.includes(search));
         const matchRegion = regionFilter === "" || s.meta.region === regionFilter;
         const matchBranch = branchFilter === "" || s.meta.branch === branchFilter;
-        return matchSearch && matchRegion && matchBranch;
+
+        let sLeague = s.meta.liga && s.meta.liga.tier_2025 ? s.meta.liga.tier_2025 : 'UNRATED';
+        const matchLeague = leagueFilter === "" || sLeague.toUpperCase() === leagueFilter.toUpperCase();
+
+        return matchSearch && matchRegion && matchBranch && matchLeague;
     });
 
     // Apply Sorting
@@ -1545,6 +1561,12 @@ function renderStoreTable() {
 
     document.getElementById('storeListCount').textContent = `Showing ${filtered.length} stores`;
 
+    // Update top badge count
+    const topCountBadge = document.getElementById('topStoreCount');
+    if (topCountBadge) {
+        topCountBadge.textContent = filtered.length;
+    }
+
     if (filtered.length === 0) {
         listBody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">No stores found.</td></tr>`;
         return;
@@ -1559,19 +1581,44 @@ function renderStoreTable() {
         const lastWave = sortedWaves[sortedWaves.length - 1];
         const lastScore = s.results[lastWave] ? s.results[lastWave].totalScore : 0;
 
-        // Rank relative to filtered list
-        const rank = idx + 1;
+        // Momentum
+        const prevWave = sortedWaves[sortedWaves.length - 2];
+        const prevScore = prevWave && s.results[prevWave] ? s.results[prevWave].totalScore : 0;
+        const mom = prevScore ? lastScore - prevScore : 0;
+        const momHtml = mom !== 0 ? `<div class="small fw-bold mt-1 ${mom > 0 ? 'text-success' : 'text-danger'}" style="font-size: 0.75rem;">${mom > 0 ? '▲ +' : '▼ '}${Math.abs(mom).toFixed(1)}</div>` : '';
+
+        // Liga Badge
+        const ligaTier = s.meta.liga ? s.meta.liga.tier_2025 : 'UNKNOWN';
+        let ligaHTML = '';
+        if (ligaTier === 'GOLD') ligaHTML = '<span class="badge rounded-pill liga-badge-gold ms-2 align-text-bottom" style="font-size: 0.6rem;"><i class="bi bi-award-fill"></i> GOLD</span>';
+        else if (ligaTier === 'SILVER') ligaHTML = '<span class="badge rounded-pill liga-badge-silver ms-2 align-text-bottom" style="font-size: 0.6rem;"><i class="bi bi-shield-fill"></i> SILVER</span>';
+        else if (ligaTier === 'BRONZE') ligaHTML = '<span class="badge rounded-pill liga-badge-bronze ms-2 align-text-bottom" style="font-size: 0.6rem;"><i class="bi bi-star-fill"></i> BRONZE</span>';
+        else if (ligaTier === 'RISING STAR') ligaHTML = '<span class="badge rounded-pill liga-badge-rising ms-2 align-text-bottom" style="font-size: 0.6rem;"><i class="bi bi-stars"></i> RISING</span>';
+
+        const dRank = s.meta.globalRank || '-';
 
         html += `
-        <tr onclick="viewStore('${s.meta.code}')" style="cursor:pointer;">
-            <td class="ps-4 fw-bold text-muted">#${rank}</td>
-            <td class="small font-monospace">${s.meta.code}</td>
-            <td class="fw-bold text-primary-custom">${s.meta.name}</td>
-            <td><span class="badge bg-light text-dark border">${s.meta.branch}</span></td>
-            <td><span class="badge bg-light text-secondary border">${s.meta.region}</span></td>
-            <td class="text-end fw-bold" style="font-size:1.1rem;">${lastScore.toFixed(2)}</td>
-            <td class="text-center">
-                <button class="btn btn-sm btn-outline-primary rounded-pill px-3" onclick="viewStore('${s.meta.code}'); event.stopPropagation();">View</button>
+        <tr class="premium-row" onclick="viewStore('${s.meta.code}')" style="cursor:pointer;">
+            <td class="ps-4 fw-bold text-muted align-middle">#${dRank}</td>
+            <td class="align-middle py-3">
+                <div class="d-flex align-items-center mb-1">
+                    <span class="fw-bold text-dark" style="font-size: 1.05rem; letter-spacing: -0.3px;">${s.meta.name}</span>
+                    ${ligaHTML}
+                </div>
+                <div class="small font-monospace text-muted py-1 px-2 bg-light d-inline-block rounded-1" style="font-size: 0.7rem; border: 1px solid #E5E7EB;">${s.meta.code}</div>
+            </td>
+            <td class="align-middle">
+                <div class="fw-bold text-dark mb-1" style="font-size: 0.9rem;">${s.meta.branch}</div>
+                <div class="text-muted" style="font-size: 0.75rem;"><i class="bi bi-geo-alt-fill opacity-50 me-1"></i>${s.meta.region}</div>
+            </td>
+            <td class="text-end pe-4 align-middle">
+                <div class="d-flex flex-column align-items-end justify-content-center">
+                    <span class="fw-bold lh-1 ${lastScore < 86 ? 'text-danger' : 'text-primary-custom'}" style="font-size:1.25rem;">${lastScore.toFixed(2)}</span>
+                    ${momHtml}
+                </div>
+            </td>
+            <td class="text-center align-middle">
+                <button class="btn btn-sm btn-dark rounded-pill px-4 shadow-sm hover-shadow" style="font-size: 0.8rem; letter-spacing: 0.3px;" onclick="viewStore('${s.meta.code}'); event.stopPropagation();">Deep Dive <i class="bi bi-arrow-right ms-1"></i></button>
             </td>
         </tr>`;
     });
@@ -1698,7 +1745,14 @@ function loadStoreDetail(idOverride) {
     var currentWaveKey = sortedWaves[sortedWaves.length - 1];
 
     // 1. Basic Info & Rank Calculation
-    document.getElementById("stName").textContent = s.meta.name;
+    var ligaTier = s.meta.liga ? s.meta.liga.tier_2025 : 'UNKNOWN';
+    var ligaHTML = '';
+    if (ligaTier === 'GOLD') ligaHTML = '<span class="badge rounded-pill liga-badge-gold ms-3 align-text-bottom" style="font-size: 0.9rem; padding: 0.4rem 0.8rem;"><i class="bi bi-award-fill me-1"></i>GOLD</span>';
+    else if (ligaTier === 'SILVER') ligaHTML = '<span class="badge rounded-pill liga-badge-silver ms-3 align-text-bottom" style="font-size: 0.9rem; padding: 0.4rem 0.8rem;"><i class="bi bi-shield-fill me-1"></i>SILVER</span>';
+    else if (ligaTier === 'BRONZE') ligaHTML = '<span class="badge rounded-pill liga-badge-bronze ms-3 align-text-bottom" style="font-size: 0.9rem; padding: 0.4rem 0.8rem;"><i class="bi bi-star-fill me-1"></i>BRONZE</span>';
+    else if (ligaTier === 'RISING STAR') ligaHTML = '<span class="badge rounded-pill liga-badge-rising ms-3 align-text-bottom" style="font-size: 0.9rem; padding: 0.4rem 0.8rem;"><i class="bi bi-stars me-1"></i>RISING STAR</span>';
+
+    document.getElementById("stName").innerHTML = s.meta.name + ligaHTML;
     document.getElementById("stMeta").textContent = s.meta.region + " | " + s.meta.branch;
 
     var stScore = cur.totalScore;
@@ -1957,21 +2011,96 @@ function loadStoreDetail(idOverride) {
 
     if (feedbackData.length > 0) {
         let posCount = 0, negCount = 0, neuCount = 0;
+        const themeCounts = {};
+
         window._currentFeedbackData = feedbackData;
 
         feedbackData.forEach(q => {
             if (q.sentiment === 'positive') posCount++;
             else if (q.sentiment === 'negative') negCount++;
             else neuCount++;
+
+            // Collect themes
+            normalizeVocTopics(q).forEach(t => themeCounts[t] = (themeCounts[t] || 0) + 1);
         });
 
         const total = feedbackData.length;
         document.getElementById('stFeedbackCount').textContent = total;
 
-        renderFeedbackCards(feedbackData);
+        // 1. Priority Themes
+        const sortedThemes = Object.entries(themeCounts).sort((a, b) => b[1] - a[1]).slice(0, 12);
+        const themesEl = document.getElementById("stPriorityThemes");
+        if (themesEl) {
+            if (sortedThemes.length > 0) {
+                themesEl.innerHTML = `
+                    <div class="d-flex gap-2 overflow-auto pb-2" style="scrollbar-width: thin;">
+                        ${sortedThemes.map(([t, c]) => `
+                            <span class="badge bg-white text-dark shadow-sm border px-3 py-2 fw-normal d-inline-flex align-items-center flex-shrink-0">
+                                ${t} <span class="badge bg-secondary bg-opacity-10 text-secondary rounded-pill ms-2">${c}</span>
+                            </span>
+                        `).join('')}
+                    </div>
+                `;
+            } else {
+                themesEl.innerHTML = '<span class="badge bg-light text-muted border">No Data</span>';
+            }
+        }
+
+        // 2. AI Recap Summary Tiles
+        const sortedCats = Object.entries(themeCounts).sort((a, b) => b[1] - a[1]);
+        const mostCat = sortedCats[0] || ['N/A', 0];
+        const leastCat = sortedCats[sortedCats.length - 1] || ['N/A', 0];
+
+        // Find most active staff or recent period
+        const staffCounts = {};
+        feedbackData.forEach(v => {
+            if (v.staffName && v.staffName !== "N/A" && v.staffName !== "Unknown") {
+                staffCounts[v.staffName] = (staffCounts[v.staffName] || 0) + 1;
+            }
+        });
+        const topStaff = Object.entries(staffCounts).sort((a, b) => b[1] - a[1])[0] || ['N/A', 0];
+
+        const recapCards = [
+            { label: 'Total Feedback', value: total.toLocaleString(), icon: 'bi-chat-right-text', color: '#3B82F6' },
+            { label: 'Most Commented Category', value: mostCat[0], icon: 'bi-arrow-up-circle', color: '#EF4444' },
+            { label: 'Least Commented Category', value: leastCat[0], icon: 'bi-arrow-down-circle', color: '#10B981' },
+            { label: 'Most Mentioned Staff', value: topStaff[0], icon: 'bi-person-badge', color: '#8B5CF6' }
+        ];
+
+        const recapTilesHtml = recapCards.map(c =>
+            '<div class="col-md-3 col-6">' +
+            '<div class="card border-0 shadow-sm p-3 h-100" style="border-radius: 12px; background: white;">' +
+            '<div class="d-flex align-items-center">' +
+            '<div class="rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px; background: ' + c.color + '15; color: ' + c.color + '; flex-shrink: 0;">' +
+            '<i class="bi ' + c.icon + '"></i></div>' +
+            '<div style="min-width: 0;"><div class="text-muted text-uppercase fw-bold" style="font-size: 0.6rem; letter-spacing: 0.5px;">' + c.label + '</div>' +
+            '<div class="fw-bold text-dark text-truncate" style="font-size: 1.1rem; max-width: 100%;" title="' + c.value + '">' + c.value + '</div></div>' +
+            '</div></div></div>'
+        ).join('');
+
+        const recapContainer = document.getElementById("stRecapTiles");
+        if (recapContainer) recapContainer.innerHTML = recapTilesHtml;
+
+        // Populate Theme Filter Dropdown
+        const themeFilterEl = document.getElementById("vocThemeFilter");
+        if (themeFilterEl) {
+            themeFilterEl.innerHTML = '<option value="all">All Categories</option>' +
+                sortedCats.map(([t, c]) => `<option value="${t}">${t} (${c})</option>`).join('');
+        }
+
+        // Initialize state and render first page
+        window._currentFeedbackData = feedbackData || [];
+        window._vocCurrentPage = 1;
+        window._vocItemsPerPage = 6;
+        if (themeFilterEl) themeFilterEl.value = 'all';
+        window._vocCurrentTheme = 'all';
+
+        applyVocFilters();
     } else {
         document.getElementById('stFeedbackCount').textContent = '0';
-        fbList.innerHTML = "<div class='text-center text-muted py-4 small'>No feedback recorded</div>";
+        document.getElementById('stPriorityThemes').innerHTML = '<span class="text-muted small">No themes detected.</span>';
+        document.getElementById('stRecapTiles').innerHTML = '';
+        fbList.innerHTML = "<div class='text-center text-muted py-4 small col-12'>No feedback recorded</div>";
     }
 
     // 7. Customer Interaction Replay (Dialogue)
@@ -2038,83 +2167,141 @@ function renderFeedbackCards(feedbackList) {
         return;
     }
 
-    // Masonry Layout via CSS Columns (handled in HTML style="column-count: 2")
-    // We just append cards directly
-    const html = feedbackList.map(item => createFeedbackCard(item)).join('');
+    // Sort: Has Manager Note > Length > Recent
+    const sortedList = feedbackList.sort((a, b) => {
+        const aNote = a.aiInsight && a.aiInsight !== 'N/A' ? 1 : 0;
+        const bNote = b.aiInsight && b.aiInsight !== 'N/A' ? 1 : 0;
+        if (aNote !== bNote) return bNote - aNote;
+        return (b.text || "").length - (a.text || "").length;
+    });
+
+    const html = sortedList.map(item => createFeedbackCard(item)).join('');
     fbList.innerHTML = html;
 }
 
 function createFeedbackCard(item) {
-    let sentimentColor = '#94A3B8'; // Neutral (Slate)
-    let sentimentBg = '#F1F5F9';
-    let sentimentIcon = '⚪';
-    let sentimentLabel = 'Neutral';
-
-    if (item.sentiment === 'positive') {
-        sentimentColor = '#10B981'; // Emerald
-        sentimentBg = '#ECFDF5';
-        sentimentIcon = '🟢';
-        sentimentLabel = 'Positive';
-    } else if (item.sentiment === 'negative') {
-        sentimentColor = '#EF4444'; // Red
-        sentimentBg = '#FEF2F2';
-        sentimentIcon = '🔴';
-        sentimentLabel = 'Negative';
-    }
-
-    // Highlights logic (if available in item.themes)
-    let highlights = '';
-    if (item.themes && item.themes.length > 0) {
-        highlights = item.themes.map(t => `<span class="badge rounded-pill bg-light text-dark border me-1" style="font-size: 0.65rem; font-weight: normal;">${t}</span>`).join('');
-    }
-
-    // Clean text (remove redundant quotes if present)
-    let text = item.text ? item.text.replace(/^"|"$/g, '') : "";
-
-    // Wave Badge
-    let waveBadge = item.wave ? `<span class="badge bg-light text-muted border ms-auto" style="font-size: 0.65rem;">${item.wave}</span>` : '';
+    const hasNote = item.aiInsight && item.aiInsight !== 'N/A';
+    const noteText = hasNote ? (item.aiInsight.includes(':') ? item.aiInsight.split(':')[0].trim() : 'Action Required') : '';
+    const cat = item.category || (item.themes && item.themes.length > 0 ? item.themes[0] : 'General');
+    const text = item.text ? item.text.replace(/^"|"$/g, '') : "";
+    const storeHint = item.wave || "Store Detail";
 
     return `
-    <div class="card border-0 shadow-sm mb-3 feedback-card-item" style="break-inside: avoid; background: white; border-radius: 12px; transition: transform 0.2s;">
-        <div class="card-body p-3">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <div class="d-flex align-items-center gap-2 w-100">
-                    <span class="badge rounded-pill" style="background-color: ${sentimentBg}; color: ${sentimentColor}; border: 1px solid ${sentimentColor}20;">
-                        ${sentimentIcon} ${sentimentLabel}
-                    </span>
-                    ${highlights}
-                    ${waveBadge}
+    <div class="col-lg-4 col-md-6">
+        <div class="card h-100 border-0 shadow-sm feedback-tile" style="background: #F8FAFC; transition: all 0.2s;" 
+             onclick="this.classList.toggle('expanded');">
+            <div class="card-body p-3 d-flex flex-column">
+                <!-- Header -->
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="badge bg-white border text-dark shadow-sm">${cat}</span>
+                    <span class="text-muted xsmall fw-bold" style="white-space: normal; word-break: break-word; text-align: right; max-width: 180px;">${storeHint}</span>
                 </div>
-            </div>
-            <p class="mb-0 text-dark" style="font-size: 0.9rem; line-height: 1.5; font-style: italic;">
-                "${text}"
-            </p>
-             <div class="mt-2 d-flex justify-content-end">
-                <small class="text-muted" style="font-size: 0.7rem;">Verified Customer ${item.staffName ? `• Served by <strong>${item.staffName}</strong>` : ''}</small>
+                
+                <!-- Manager Action Highlight -->
+                ${hasNote ? `
+                <div class="mb-2">
+                     <div class="d-flex align-items-center text-primary mb-1">
+                        <i class="bi bi-lightning-charge-fill me-1 small"></i>
+                        <span class="fw-bold xsmall text-uppercase ls-1">Priority Action</span>
+                     </div>
+                     <div class="fw-bold text-dark small" style="line-height: 1.3;">${noteText}</div>
+                </div>
+                ` : ''}
+
+                <!-- Truncated Feedback -->
+                <div class="feedback-text mt-auto">
+                    <p class="mb-0 text-secondary small fst-italic text-truncate-multiline" style="line-height: 1.5;">"${text}"</p>
+                </div>
+                
+                <!-- Footer Staff Context -->
+                ${item.staffName && item.staffName !== 'N/A' && item.staffName !== 'Unknown' ? `
+                <div class="mt-2 pt-2 border-top border-light text-end">
+                    <small class="text-muted" style="font-size: 0.65rem;">Served by <strong class="text-dark">${item.staffName}</strong></small>
+                </div>
+                ` : ''}
+
+                <!-- Toggle Hint -->
+                <div class="text-center mt-2 pt-2 border-top border-light d-none expand-hint">
+                    <span class="text-primary xsmall fw-bold">Click to Collapse</span>
+                </div>
             </div>
         </div>
     </div>`;
 }
 
-function filterFeedback(filter, btn) {
-    // Update button states
-    const group = btn.parentElement;
-    group.querySelectorAll('.btn').forEach(b => {
-        b.style.background = '#F1F5F9';
-        b.style.color = '#64748B';
-        b.classList.remove('active');
-    });
-    btn.style.background = '#1E293B';
-    btn.style.color = 'white';
-    btn.classList.add('active');
+// --- NEW VOC FILTER & PAGINATION LOGIC ---
 
-    // Filter and re-render
-    const data = window._currentFeedbackData || [];
-    if (filter === 'all') {
-        renderFeedbackCards(data);
-    } else {
-        renderFeedbackCards(data.filter(q => q.sentiment === filter));
+function applyVocFilters() {
+    let data = window._currentFeedbackData || [];
+
+    // 1. Filter by Theme
+    if (window._vocCurrentTheme !== 'all') {
+        data = data.filter(q => {
+            let topics = normalizeVocTopics(q);
+            return topics.includes(window._vocCurrentTheme) || (q.category && q.category === window._vocCurrentTheme);
+        });
     }
+
+    // 3. Pagination Math
+    const totalItems = data.length;
+    const totalPages = Math.ceil(totalItems / window._vocItemsPerPage) || 1;
+
+    if (window._vocCurrentPage > totalPages) window._vocCurrentPage = totalPages;
+    if (window._vocCurrentPage < 1) window._vocCurrentPage = 1;
+
+    const startIdx = (window._vocCurrentPage - 1) * window._vocItemsPerPage;
+    const endIdx = startIdx + window._vocItemsPerPage;
+    const paginatedData = data.slice(startIdx, endIdx);
+
+    // 4. Render output
+    renderFeedbackCards(paginatedData);
+
+    // 5. Update Pagination UI
+    const pagContainer = document.getElementById("stFeedbackPaginationContainer");
+    if (pagContainer) {
+        if (totalItems > window._vocItemsPerPage) {
+            pagContainer.style.setProperty('display', 'flex', 'important');
+
+            // Update info text
+            const infoText = totalItems === 0 ? 'Showing 0 insights' :
+                `Showing ${startIdx + 1}-${Math.min(endIdx, totalItems)} of ${totalItems} insights`;
+            document.getElementById("vocPageInfo").textContent = infoText;
+
+            // Update buttons
+            const btnPrev = document.getElementById("vocBtnPrev");
+            const btnNext = document.getElementById("vocBtnNext");
+
+            vBtnUpdate(btnPrev, window._vocCurrentPage > 1);
+            vBtnUpdate(btnNext, window._vocCurrentPage < totalPages);
+
+        } else {
+            pagContainer.style.setProperty('display', 'none', 'important');
+        }
+    }
+}
+
+function vBtnUpdate(btn, enabled) {
+    if (!btn) return;
+    if (enabled) {
+        btn.classList.remove("disabled", "text-muted");
+        btn.removeAttribute("disabled");
+    } else {
+        btn.classList.add("disabled", "text-muted");
+        btn.setAttribute("disabled", "true");
+    }
+}
+
+function changeStoreVocPage(dir) {
+    window._vocCurrentPage += dir;
+    applyVocFilters();
+}
+
+// Sentiment filter has been removed
+
+function filterVocTheme(themeValue) {
+    window._vocCurrentTheme = themeValue;
+    window._vocCurrentPage = 1;
+    applyVocFilters();
 }
 
 // --- BATTLE MODE LOGIC ---

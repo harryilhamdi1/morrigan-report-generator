@@ -47,7 +47,7 @@ function buildHierarchy(allStoreData, waves) {
         // Initialize Store Node
         if (!hierarchy.stores[entry.siteCode]) {
             hierarchy.stores[entry.siteCode] = {
-                meta: { name: entry.siteName, region: entry.region, branch: entry.branch, code: entry.siteCode },
+                meta: { name: entry.siteName, region: entry.region, branch: entry.branch, code: entry.siteCode, liga: entry.liga },
                 results: {}
             };
         }
