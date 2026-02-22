@@ -57,12 +57,6 @@ async function processAllFeedbackWithAI(allFeedback) {
                 aiEnhanced: true
             };
 
-            // DEBUG: Log if we hit a Cleanliness item
-            if (cacheItem.category === 'Cleanliness' || (cacheItem.themes && cacheItem.themes.includes('Cleanliness'))) {
-                const logMsg = `[AI_VOC] Match! Text: "${item.text.substring(0, 20)}..." -> Themes: ${merged.themes}\n`;
-                fs.appendFileSync(path.join(__dirname, '../../debug_log.txt'), logMsg);
-            }
-
             results.push(merged);
         } else {
             // No cache? Fallback to neutral or rule-based placeholders
