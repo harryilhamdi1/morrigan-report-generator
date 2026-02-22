@@ -1,8 +1,14 @@
 node_modules/
-.DS_Store
-*.log
-report_v2.html
-report.html
-# We keep report_v3.html if you want to showcase the result, otherwise add it here.
-# For now, I'll keep it so you can see the output in the repo.
 .env
+google-credentials.json
+.vscode/
+
+# Ignore frontend files in the backend repo (if splitting them)
+Action Plan Web App/
+CSV/
+src/build.js
+src/import_users.js
+src/migrate_to_supabase.js
+
+ESS Action Plan Monitoring.html
+ESS Retail Analysis.html
